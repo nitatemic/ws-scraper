@@ -9,111 +9,12 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"path"
-	"regexp"
-	"strings"
 
-	"github.com/Akenaide/biri"
-	"github.com/PuerkitoBio/goquery"
+	"github.com/kwadkore/wsoffcli/fetch"
 	"github.com/spf13/cobra"
 )
 
-const PRODUCTS_URL = "https://ws-tcg.com/products/page/"
-
-var BAN_PRODUCT = []string{
-	"new_title_ws",
-	"resale_news",
-	"bp_renewal",
-}
-
-var TITLE_AND_WORK_NUMBER_REGEXP = regexp.MustCompile(".*/ .*：([\\w,]+)")
-
-// ProductInfo represents the extracted information from the HTML
-type ProductInfo struct {
-	ReleaseDate string
-	Title       string
-	LicenceCode string
-	Image       string
-	SetCode     string
-}
-
-func getDocument(url string) *goquery.Document {
-	var doc *goquery.Document
-
-	for {
-		var err error
-		proxy := biri.GetClient()
-		resp, err := proxy.Client.Get(url)
-		if err != nil || resp.StatusCode != 200 {
-			log.Println("Error on fetch page: ", err)
-			proxy.Ban()
-			continue
-		}
-		doc, err = goquery.NewDocumentFromReader(resp.Body)
-		defer resp.Body.Close()
-		if err != nil {
-			log.Println("Error on parse page: ", err)
-			proxy.Ban()
-			continue
-		}
-		proxy.Readd()
-		break
-	}
-
-	return doc
-}
-
-func extractProductInfo(doc *goquery.Document) (ProductInfo, error) {
-	var setCode string
-	releaseDate := strings.Split(strings.TrimSpace(doc.Find(".release strong").Text()), "(")[0]
-	titleAndWorkNumber := strings.TrimSpace(doc.Find(".release").Text())
-
-	matches := TITLE_AND_WORK_NUMBER_REGEXP.FindStringSubmatch(titleAndWorkNumber)
-	if matches == nil {
-		return ProductInfo{}, fmt.Errorf("String %q doesn't match expected format", titleAndWorkNumber)
-	}
-	licenceCode := matches[1]
-	doc.Find(".entry-content img").Each(func(i int, s *goquery.Selection) {
-		src, _ := s.Attr("src")
-		// Extract the filename from the path
-		filename := path.Base(src)
-
-		// Extract "W109" from the filename
-		parts := strings.Split(filename, "_")
-		if len(parts) >= 4 {
-			setCode = parts[2]
-		}
-	})
-
-	return ProductInfo{
-		ReleaseDate: releaseDate,
-		Title:       doc.Find(".entry-content > h3").Text(),
-		LicenceCode: licenceCode,
-		SetCode:     setCode,
-		Image:       doc.Find(".product-detail .alignright img").AttrOr("src", "notfound"),
-	}, nil
-}
-
-func fetchProduct(page string) {
-	productList := []ProductInfo{}
-	doc := getDocument(PRODUCTS_URL + page)
-
-	doc.Find(".product-list .show-detail a").Each(func(i int, s *goquery.Selection) {
-		productDetail := s.AttrOr("href", "nope")
-		for _, ban := range BAN_PRODUCT {
-			if strings.Contains(productDetail, ban) {
-				return
-			}
-		}
-		log.Println("Extract :", productDetail)
-		doc := getDocument(productDetail)
-		if productInfo, err := extractProductInfo(doc); err != nil {
-			log.Println("Error getting product info:", err)
-		} else {
-			productList = append(productList, productInfo)
-		}
-	})
-
+func writeProducts(productList []fetch.ProductInfo) {
 	res, errMarshal := json.Marshal(productList)
 	if errMarshal != nil {
 		log.Println("error marshal", errMarshal)
@@ -137,12 +38,8 @@ var productsCmd = &cobra.Command{
 It will output the ReleaseDate, Title, Image, SetCode, LicenceCode in a 'product.json' file.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("products called")
-		biri.Config.PingServer = "https://ws-tcg.com/"
-		biri.Config.TickMinuteDuration = 1
-		biri.Config.Timeout = 25
-		biri.ProxyStart()
 
-		fetchProduct(cmd.Flag("page").Value.String())
+		writeProducts(fetch.Products(cmd.Flag("page").Value.String()))
 	},
 }
 

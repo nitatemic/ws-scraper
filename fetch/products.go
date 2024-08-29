@@ -15,29 +15,25 @@
 package fetch
 
 import (
-	"bytes"
-	"encoding/json"
 	"fmt"
 	"log"
-	"os"
 	"path"
 	"regexp"
 	"strings"
 
 	"github.com/Akenaide/biri"
 	"github.com/PuerkitoBio/goquery"
-	"github.com/spf13/cobra"
 )
 
-const PRODUCTS_URL = "https://ws-tcg.com/products/page/"
+const ProductsUrl = "https://ws-tcg.com/products/page/"
 
-var BAN_PRODUCT = []string{
+var banProduct = []string{
 	"new_title_ws",
 	"resale_news",
 	"bp_renewal",
 }
 
-var TITLE_AND_WORK_NUMBER_REGEXP = regexp.MustCompile(".*/ .*：([\\w,]+)")
+var titleAndWorkNumberRegexp = regexp.MustCompile(".*/ .*：([\\w,]+)")
 
 // ProductInfo represents the extracted information from the HTML
 type ProductInfo struct {
@@ -60,8 +56,8 @@ func getDocument(url string) *goquery.Document {
 			proxy.Ban()
 			continue
 		}
-		doc, err = goquery.NewDocumentFromReader(resp.Body)
 		defer resp.Body.Close()
+		doc, err = goquery.NewDocumentFromReader(resp.Body)
 		if err != nil {
 			log.Println("Error on parse page: ", err)
 			proxy.Ban()
@@ -79,9 +75,9 @@ func extractProductInfo(doc *goquery.Document) (ProductInfo, error) {
 	releaseDate := strings.Split(strings.TrimSpace(doc.Find(".release strong").Text()), "(")[0]
 	titleAndWorkNumber := strings.TrimSpace(doc.Find(".release").Text())
 
-	matches := TITLE_AND_WORK_NUMBER_REGEXP.FindStringSubmatch(titleAndWorkNumber)
+	matches := titleAndWorkNumberRegexp.FindStringSubmatch(titleAndWorkNumber)
 	if matches == nil {
-		return ProductInfo{}, fmt.Errorf("String %q doesn't match expected format", titleAndWorkNumber)
+		return ProductInfo{}, fmt.Errorf("string %q doesn't match expected format", titleAndWorkNumber)
 	}
 	licenceCode := matches[1]
 	doc.Find(".entry-content img").Each(func(i int, s *goquery.Selection) {
@@ -105,13 +101,18 @@ func extractProductInfo(doc *goquery.Document) (ProductInfo, error) {
 	}, nil
 }
 
-func fetchProduct(page string) {
-	productList := []ProductInfo{}
-	doc := getDocument(PRODUCTS_URL + page)
+func Products(page string) []ProductInfo {
+	biri.Config.PingServer = "https://ws-tcg.com/"
+	biri.Config.TickMinuteDuration = 1
+	biri.Config.Timeout = 25
+	biri.ProxyStart()
+
+	var productList []ProductInfo
+	doc := getDocument(ProductsUrl + page)
 
 	doc.Find(".product-list .show-detail a").Each(func(i int, s *goquery.Selection) {
 		productDetail := s.AttrOr("href", "nope")
-		for _, ban := range BAN_PRODUCT {
+		for _, ban := range banProduct {
 			if strings.Contains(productDetail, ban) {
 				return
 			}
@@ -125,48 +126,5 @@ func fetchProduct(page string) {
 		}
 	})
 
-	res, errMarshal := json.Marshal(productList)
-	if errMarshal != nil {
-		log.Println("error marshal", errMarshal)
-	}
-	var buffer bytes.Buffer
-	out, err := os.Create("product.json")
-	if err != nil {
-		log.Println("write error", err.Error())
-	}
-	json.Indent(&buffer, res, "", "\t")
-	buffer.WriteTo(out)
-	out.Close()
-	log.Println("Finished")
-}
-
-// productsCmd represents the products command
-var productsCmd = &cobra.Command{
-	Use:   "products",
-	Short: "Get products information",
-	Long: `Get products information.
-It will output the ReleaseDate, Title, Image, SetCode, LicenceCode in a 'product.json' file.`,
-	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("products called")
-		biri.Config.PingServer = "https://ws-tcg.com/"
-		biri.Config.TickMinuteDuration = 1
-		biri.Config.Timeout = 25
-		biri.ProxyStart()
-
-		fetchProduct(cmd.Flag("page").Value.String())
-	},
-}
-
-func init() {
-	rootCmd.AddCommand(productsCmd)
-
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// productsCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	productsCmd.Flags().Int16P("page", "p", 1, "Give which page to parse")
+	return productList
 }

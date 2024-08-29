@@ -1,4 +1,4 @@
-module github.com/Akenaide/wsoffcli
+module github.com/kwadkore/wsoffcli
 
 go 1.21
 
