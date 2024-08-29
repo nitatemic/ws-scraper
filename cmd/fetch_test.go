@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"log"
 	"os"
 	"slices"
 	"testing"
@@ -12,13 +11,13 @@ import (
 // func TestGetLastPage(t *testing.T) {
 // 	f, err := os.Open("mockws/bd.html")
 // 	if err != nil {
-// 		log.Fatal(err)
+// 		t.Fatal(err)
 // 	}
 // 	defer f.Close()
 
 // 	doc, err := goquery.NewDocumentFromReader(f)
 // 	if err != nil {
-// 		log.Fatal(err)
+// 		t.Fatal(err)
 // 	}
 // 	last := getLastPage(doc)
 // 	if last != 69 {
@@ -39,13 +38,13 @@ func TestRecentSwitch(t *testing.T) {
 	}
 	f, err := os.Open("mockws/recent.html")
 	if err != nil {
-		log.Fatal(err)
+		t.Fatal(err)
 	}
 	defer f.Close()
 
 	doc, err := goquery.NewDocumentFromReader(f)
 	if err != nil {
-		log.Fatal(err)
+		t.Fatal(err)
 	}
 	recentFurnitures := getRecentFurnitures(doc)
 	if len(recentFurnitures) != 8 {
@@ -57,6 +56,5 @@ func TestRecentSwitch(t *testing.T) {
 		if slices.Contains(expectedExpension, expansion) == false {
 			t.Errorf("Did not expect %v expansion", expansion)
 		}
-
 	}
 }
