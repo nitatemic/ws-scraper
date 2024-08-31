@@ -33,7 +33,7 @@ var banProduct = []string{
 	"bp_renewal",
 }
 
-var titleAndWorkNumberRegexp = regexp.MustCompile(".*/ .*：([\\w,]+)")
+var titleAndWorkNumberRegexp = regexp.MustCompile(`.*/ .*：([\w,]+)`)
 
 // ProductInfo represents the extracted information from the HTML
 type ProductInfo struct {
