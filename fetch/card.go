@@ -1,4 +1,18 @@
-package cmd
+// Copyright © 2024
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package fetch
 
 import (
 	"bytes"
@@ -13,7 +27,36 @@ import (
 	"github.com/PuerkitoBio/goquery"
 )
 
-var re = regexp.MustCompile(`<img .*>`)
+// Card info to export
+type Card struct {
+	Set           string   `json:"set"`
+	SetName       string   `json:"setName"`
+	Side          string   `json:"side"`
+	Release       string   `json:"release"`
+	ID            string   `json:"id"`
+	Name          string   `json:"name"`
+	Language      string   `json:"language"`
+	CardType      string   `json:"cardType"`
+	Colour        string   `json:"colour"`
+	Level         string   `json:"level"`
+	Cost          string   `json:"cost"`
+	Power         string   `json:"power"`
+	Soul          string   `json:"soul"`
+	Rarity        string   `json:"rarity"`
+	FlavourText   string   `json:"flavourText"`
+	Trigger       []string `json:"trigger"`
+	Ability       []string `json:"ability"`
+	SpecialAttrib []string `json:"specialAttrib"`
+	Version       string   `json:"version"`
+	Cardcode      string   `json:"cardcode"`
+	ImageURL      string   `json:"imageURL"`
+	Tags          []string `json:"tags"`
+}
+
+// CardModelVersion : Card format version
+const CardModelVersion = "4"
+
+var imgRE = regexp.MustCompile(`<img .*>`)
 
 var suffix = []string{
 	"SP",
@@ -58,25 +101,25 @@ func processInt(st string) string {
 	return st
 }
 
-// ExtractData extract data to card
-func ExtractData(config siteConfig, mainHTML *goquery.Selection) Card {
+// extractData extract data to card
+func extractData(config siteConfig, mainHTML *goquery.Selection) Card {
 	var imgPlaceHolder string
-	ability := []string{}
-	complex := mainHTML.Find("h4 span").Last().Text()
+	var ability []string
+	titleSpan := mainHTML.Find("h4 span").Last().Text()
 	defer func() {
 		if err := recover(); err != nil {
-			log.Printf("Panic for %v. Error=%v", complex, err)
+			log.Printf("Panic for %v. Error=%v", titleSpan, err)
 		}
 	}()
-	log.Println("Start card:", complex)
+	log.Println("Start card:", titleSpan)
 	var set string
 	var setInfo []string
-	if strings.Contains(complex, "/") {
-		set = strings.Split(complex, "/")[0]
-		setInfo = strings.Split(strings.Split(complex, "/")[1], "-")
+	if strings.Contains(titleSpan, "/") {
+		set = strings.Split(titleSpan, "/")[0]
+		setInfo = strings.Split(strings.Split(titleSpan, "/")[1], "-")
 	} else {
 		// TODO: deal with "BSF2024-03 PR" and similar cards
-		log.Println("Can't get set info from:", complex)
+		log.Println("Can't get set info from:", titleSpan)
 	}
 	setName := strings.TrimSpace(strings.Split(mainHTML.Find("h4").Text(), ") -")[1])
 	imageCardURL, _ := mainHTML.Find("a img").Attr("src")
@@ -90,7 +133,7 @@ func ExtractData(config siteConfig, mainHTML *goquery.Selection) Card {
 	}
 
 	for _, line := range strings.Split(abilityNode, "<br/>") {
-		ability = append(ability, re.ReplaceAllString(line, imgPlaceHolder))
+		ability = append(ability, imgRE.ReplaceAllString(line, imgPlaceHolder))
 	}
 
 	infos := make(map[string]string)
@@ -182,7 +225,7 @@ func ExtractData(config siteConfig, mainHTML *goquery.Selection) Card {
 		Rarity:      infos["rarity"],
 		Ability:     ability,
 		Version:     CardModelVersion,
-		Cardcode:    complex,
+		Cardcode:    titleSpan,
 	}
 	if fullURL, err := url.JoinPath(config.baseURL, imageCardURL); err == nil {
 		card.ImageURL = fullURL
@@ -199,9 +242,6 @@ func ExtractData(config siteConfig, mainHTML *goquery.Selection) Card {
 	if len(setInfo) > 1 {
 		card.Release = setInfo[0]
 		card.ID = setInfo[1]
-	}
-	if config.languageCode == "JP" {
-		card.JpName = card.Name
 	}
 	return card
 }

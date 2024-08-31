@@ -27,39 +27,7 @@ var (
 	cfgFile     string
 	serieNumber string
 	neo         string
-	allRarity   bool
 )
-
-// Card info to export
-type Card struct {
-	Set               string   `json:"set"`
-	SetName           string   `json:"setName"`
-	Side              string   `json:"side"`
-	Release           string   `json:"release"`
-	ID                string   `json:"id"`
-	Name              string   `json:"name"`
-	JpName            string   `json:"jpName"`
-	CardType          string   `json:"cardType"`
-	Colour            string   `json:"colour"`
-	Level             string   `json:"level"`
-	Cost              string   `json:"cost"`
-	Power             string   `json:"power"`
-	Soul              string   `json:"soul"`
-	Rarity            string   `json:"rarity"`
-	BreakDeckbuilding bool     `json:"breakDeckbuilding"`
-	ENEquivalent      bool     `json:"EN_Equivalent"`
-	FlavourText       string   `json:"flavourText"`
-	Trigger           []string `json:"trigger"`
-	Ability           []string `json:"ability"`
-	SpecialAttrib     []string `json:"specialAttrib"`
-	Version           string   `json:"version"`
-	Cardcode          string   `json:"cardcode"`
-	ImageURL          string   `json:"imageURL"`
-	Tags              []string `json:"tags"`
-}
-
-// CardModelVersion : Card format version
-const CardModelVersion = "4"
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{

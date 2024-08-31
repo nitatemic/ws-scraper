@@ -19,242 +19,57 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"net/http"
-	"net/http/cookiejar"
-	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
 
-	"golang.org/x/net/publicsuffix"
-
-	"github.com/Akenaide/biri"
-	"github.com/PuerkitoBio/goquery"
+	"github.com/kwadkore/wsoffcli/fetch"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
 
 const maxWorker int = 5
 
-type siteConfig struct {
-	baseURL                  string
-	cardListURL              string
-	cardSearchURL            string
-	languageCode             string
-	nextButtonDistinguisher  string
-	resultTableDistinguisher string
-}
-
-var siteConfigs = map[string]siteConfig{
-	"EN": {
-		baseURL:                  "https://en.ws-tcg.com/",
-		cardListURL:              "https://en.ws-tcg.com/cardlist/list/",
-		cardSearchURL:            "https://en.ws-tcg.com/cardlist/cardsearch/exec",
-		languageCode:             "EN",
-		nextButtonDistinguisher:  "[rel=\"next\"]",
-		resultTableDistinguisher: "#searchResult-table tr",
-	},
-	"JP": {
-		baseURL:                  "https://ws-tcg.com/",
-		cardListURL:              "https://ws-tcg.com/cardlist/",
-		cardSearchURL:            "https://ws-tcg.com/cardlist/search",
-		languageCode:             "JP",
-		nextButtonDistinguisher:  ".pager .next",
-		resultTableDistinguisher: ".search-result-table tr",
-	},
-}
-
-type writerWorkerStruct struct {
-	mode       string
-	wg         *sync.WaitGroup
-	writeChan  chan *goquery.Selection
-	boosterMap map[string]booster
-}
-
-type booster struct {
-	code  string
-	cards []Card
-}
-
-type furniture struct {
-	Jobs     chan string
-	Values   url.Values
-	Wg       *sync.WaitGroup
-	Jar      http.CookieJar
-	lastPage int
-}
-
-func (w *writerWorkerStruct) run(config siteConfig) {
-	switch w.mode {
-	case "card":
-		go w.card(config)
-		go w.card(config)
-	case "booster":
-		go w.populateBooster(config)
-	}
-}
-
-func (w *writerWorkerStruct) populateBooster(config siteConfig) {
-	for s := range w.writeChan {
-		newCard := ExtractData(config, s)
-		boosterCode := newCard.Release
-		boosterObj := w.boosterMap[boosterCode]
-
-		boosterObj.cards = append(boosterObj.cards, newCard)
-		w.boosterMap[boosterCode] = boosterObj
-		w.wg.Done()
-	}
-}
-
-func (w *writerWorkerStruct) write(config siteConfig) {
-	fmt.Println("Start write in mode: ", w.mode)
-	if w.mode == "booster" {
-		for k, v := range w.boosterMap {
-			log.Println("Found booster :", k)
-			dirName := filepath.Join(viper.GetString("boosterDir"), config.languageCode)
-			os.MkdirAll(dirName, 0o744)
-			filename := filepath.Join(dirName, k+".json")
-			updatedData, err := json.Marshal(v.cards)
-			if err != nil {
-				log.Println("Error marshal struct: ", k)
-			}
-			if err := os.WriteFile(filename, updatedData, 0o644); err != nil {
-				log.Println("Error writing :", k)
-			}
-		}
-	}
-}
-
-func (w *writerWorkerStruct) card(config siteConfig) {
-	for s := range w.writeChan {
-
-		card := ExtractData(config, s)
-
+func writeCards(wg *sync.WaitGroup, lang string, cardCh <-chan fetch.Card) {
+	for card := range cardCh {
 		res, errMarshal := json.Marshal(card)
 		if errMarshal != nil {
 			log.Println("error marshal", errMarshal)
-			w.wg.Done()
 			continue
 		}
 		var buffer bytes.Buffer
 		cardName := fmt.Sprintf("%v-%v-%v.json", card.Set, card.Release, card.ID)
-		dirName := filepath.Join(viper.GetString("cardDir"), config.languageCode, card.Set, card.Release)
+		dirName := filepath.Join(viper.GetString("cardDir"), lang, card.Set, card.Release)
 		os.MkdirAll(dirName, 0o744)
 		out, err := os.Create(filepath.Join(dirName, cardName))
 		if err != nil {
 			log.Println("write error", err.Error())
-			w.wg.Done()
 			continue
 		}
 		json.Indent(&buffer, res, "", "\t")
 		buffer.WriteTo(out)
 		out.Close()
-		w.wg.Done()
 		log.Println("Finish card- : ", cardName)
 	}
+	wg.Done()
 }
 
-func responseWorker(
-	id int,
-	furni *furniture,
-	config siteConfig,
-	respChannel chan *http.Response,
-	writeChan chan *goquery.Selection,
-) {
-	for resp := range respChannel {
-		log.Printf("Start page: %v", resp.Request.URL)
-		doc, err := goquery.NewDocumentFromReader(resp.Body)
+func writeBoosters(lang string, boosters map[string]fetch.Booster) {
+	for k, v := range boosters {
+		log.Println("Found booster :", k)
+		dirName := filepath.Join(viper.GetString("boosterDir"), lang)
+		os.MkdirAll(dirName, 0o744)
+		filename := filepath.Join(dirName, k+".json")
+		updatedData, err := json.Marshal(v.Cards)
 		if err != nil {
-			furni.Jobs <- resp.Request.URL.String()
-			log.Println("goquery error: ", err, "for page: ", resp.Request.URL)
-			continue
+			log.Println("Error marshal struct: ", k)
 		}
-		resultTable := doc.Find(config.resultTableDistinguisher)
-
-		if resultTable.Length() == 0 && resp.StatusCode == 200 {
-			fmt.Println("No cards on response page")
-		} else {
-			log.Println("Found cards !!", resp.Request.URL)
-			resultTable.Each(func(i int, s *goquery.Selection) {
-				furni.Wg.Add(1)
-				writeChan <- s
-			})
-		}
-		furni.Wg.Done()
-		log.Printf("Finish page: %v", resp.Request.URL)
-	}
-}
-
-func worker(id int, furni *furniture, respChannel chan *http.Response) {
-	for link := range furni.Jobs {
-
-		log.Println("ID :", id, "Fetch page : ", link, "with params : ", furni.Values)
-		proxy := biri.GetClient()
-		log.Println("Got proxy")
-		proxy.Client.Jar = furni.Jar
-
-		resp, err := proxy.Client.PostForm(link, furni.Values)
-		if err != nil || resp.StatusCode != 200 {
-			log.Println("Ban proxy:", err)
-			proxy.Ban()
-			furni.Jobs <- link
-		} else {
-			if resp.StatusCode != 302 {
-				proxy.Readd()
-				respChannel <- resp
-			}
+		if err := os.WriteFile(filename, updatedData, 0o644); err != nil {
+			log.Println("Error writing :", k)
 		}
 	}
-	log.Println("Nani", id)
-}
-
-func (f *furniture) getLastPage(config siteConfig) int {
-	resp, err := http.PostForm(fmt.Sprintf("%v?page=%d", config.cardSearchURL, 1), f.Values)
-	if err != nil {
-		log.Fatal("Error on getting last page")
-	}
-
-	doc, err := goquery.NewDocumentFromReader(resp.Body)
-	if err != nil {
-		log.Fatal("Error on getting last page parse")
-	}
-	all := doc.Find(config.nextButtonDistinguisher)
-
-	last, _ := strconv.Atoi(all.Prev().First().Text())
-	// default is 1, there no .pager .next if it's the only page
-	if last == 0 {
-		last = 1
-	}
-	log.Println("Last pages is", last, " for :", f.Values)
-	f.lastPage = last
-	return last
-}
-
-func getRecentFurnitures(doc *goquery.Document) []furniture {
-	var furnitures = []furniture{}
-	// Find all <a> elements with onclick attributes within the <ul> element
-	doc.Find("div.system > ul.expansion-list a[onclick]").Each(func(i int, sel *goquery.Selection) {
-		onclickAttr, exists := sel.Attr("onclick")
-		if exists {
-			// Extract the integer value from the onclick attribute
-			parts := strings.Split(onclickAttr, "('")
-			if len(parts) >= 2 {
-				value := strings.TrimSuffix(parts[1], "')")
-				urlValues := url.Values{
-					"cmd":             {"search"},
-					"show_page_count": {"100"},
-					"show_small":      {"0"},
-					// TODO: this should use viper
-					"parallel":  {"0"},
-					"expansion": {value},
-				}
-				furnitures = append(furnitures, furniture{Values: urlValues})
-			}
-		}
-	})
-	return furnitures
 }
 
 // fetchCmd represents the fetch command
@@ -265,131 +80,59 @@ var fetchCmd = &cobra.Command{
 
 Use global switches to specify the set, by default it will fetch all sets.`,
 	Run: func(cmd *cobra.Command, args []string) {
+		cfg := fetch.Config{
+			GetAllRarities: viper.GetBool("allrarity"),
+			GetRecent:      viper.GetBool("recent"),
+			PageStart:      viper.GetInt("pagestart"),
+			Reverse:        viper.GetBool("reverse"),
+		}
 		lang := viper.GetString("lang")
-		var config siteConfig
-		if c, ok := siteConfigs[lang]; !ok {
+		switch lang {
+		case "EN":
+			cfg.Language = fetch.EN
+		case "JP":
+			cfg.Language = fetch.JP
+		default:
 			log.Fatalf("Unsupported language: %q\n", lang)
-		} else {
-			config = c
-			log.Printf("Fetching %s cards\n", lang)
-		}
-
-		iter := viper.GetInt("iter")
-		loopNum := 0
-		fmt.Println("fetch called")
-		fmt.Printf("Settings: %v\n", viper.AllSettings())
-		biri.Config.PingServer = config.baseURL
-		biri.Config.TickMinuteDuration = 1
-		biri.Config.Timeout = 25
-		jar, err := cookiejar.New(&cookiejar.Options{PublicSuffixList: publicsuffix.List})
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		furnitures := []*furniture{}
-
-		var wg sync.WaitGroup
-		respChannel := make(chan *http.Response, maxWorker)
-		writeChannel := make(chan *goquery.Selection)
-
-		biri.ProxyStart()
-
-		values := url.Values{
-			"cmd":             {"search"},
-			"show_page_count": {"100"},
-			"show_small":      {"0"},
-			"parallel":        {"0"},
 		}
 		if serieNumber != "" {
-			values.Add("expansion", serieNumber)
+			if s, err := strconv.Atoi(serieNumber); err == nil {
+				cfg.ExpansionNumber = s
+			} else {
+				log.Fatalf("Invalid expansion number: %v\n", err)
+			}
 		}
 		if neo != "" {
-			values.Add("title_number", fmt.Sprintf("##%v##", neo))
+			cfg.SetCode = strings.Split(neo, "##")
 		}
 
-		if !viper.GetBool("allrarity") {
-			values.Set("parallel", "1")
-		}
-		// Default furniture
-		furni := furniture{
-			Values: values,
-			Wg:     &wg,
-			Jar:    jar,
-		}
+		fmt.Println("fetch called")
+		fmt.Printf("Settings: %v\n", viper.AllSettings())
 
-		if viper.GetBool("recent") {
-			resp, err := http.Get(config.cardListURL)
+		mode := viper.GetString("export")
+		fmt.Println("Start write in mode: ", mode)
+		switch mode {
+		case "booster":
+			bm, err := fetch.Boosters(cfg)
 			if err != nil {
-				log.Fatal("Error on get recent")
+				log.Printf("Error fetching boosters: %v\n", err)
 			}
-			doc, err := goquery.NewDocumentFromReader(resp.Body)
-			if err != nil {
-				log.Fatal("Error on parse recent")
-			}
-			for _, recentfurni := range getRecentFurnitures(doc) {
-				copyFurni := furni
-				copyFurni.Values = recentfurni.Values
-				log.Println(furni, recentfurni)
-				furnitures = append(furnitures, &copyFurni)
-			}
-		} else {
-			furnitures = append(furnitures, &furni)
-
-		}
-
-		for _, furni := range furnitures {
-			lastPage := furni.getLastPage(config)
-			loopNum += lastPage
-			furni.Jobs = make(chan string, lastPage)
-		}
-
-		if iter == 0 {
-			iter = loopNum
-		} else {
-			loopNum = iter
-		}
-
-		log.Printf("Number of loop %v\n", loopNum)
-		wg.Add(loopNum)
-
-		writerWorker := writerWorkerStruct{
-			mode:       viper.GetString("export"),
-			wg:         &wg,
-			writeChan:  writeChannel,
-			boosterMap: make(map[string]booster),
-		}
-		writerWorker.run(config)
-		for _, furni := range furnitures {
+			writeBoosters(lang, bm)
+		case "card":
+			cardCh := make(chan fetch.Card, maxWorker)
+			var wg sync.WaitGroup
 			for i := 0; i < maxWorker; i++ {
-				go worker(i, furni, respChannel)
-				go responseWorker(i, furni, config, respChannel, writeChannel)
+				wg.Add(1)
+				go writeCards(&wg, lang, cardCh)
 			}
-			go func(furni *furniture, iter int) {
-				fmt.Println("furni.lastPage:", furni.lastPage)
-				if viper.GetBool("reverse") {
-					for i := 0; i < iter; i++ {
-						// hotfix, more work needed to have a clean implementation
-						if furni.lastPage-i > 0 {
-							furni.Jobs <- fmt.Sprintf("%v?page=%d", config.cardSearchURL, furni.lastPage-i)
-						}
-					}
-				} else {
-					for i := 1; i <= iter; i++ {
-						// hotfix, more work needed to have a clean implementation
-						if i <= furni.lastPage {
-							furni.Jobs <- fmt.Sprintf("%v?page=%d", config.cardSearchURL, i)
-						}
-					}
-				}
-				log.Print("Finished loop")
-			}(furni, iter)
+			err := fetch.CardsStream(cfg, cardCh)
+			if err != nil {
+				log.Printf("Error fetching cards: %v\n", err)
+			}
+			wg.Wait()
+		default:
+			log.Fatalf("Unsupported export mode: %q\n", mode)
 		}
-
-		log.Println("Waiting...")
-		wg.Wait()
-		// close(jobs)
-		biri.Done()
-		writerWorker.write(config)
 	},
 }
 
@@ -407,7 +150,7 @@ func init() {
 	// fetchCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 	fetchCmd.Flags().StringP("boosterDir", "", "boosters", "Directory to put fetched booster information into")
 	fetchCmd.Flags().StringP("cardDir", "", "cards", "Directory to put fetched card information into")
-	fetchCmd.Flags().IntP("iter", "i", 0, "Number of iteration")
+	fetchCmd.Flags().IntP("pagestart", "p", 0, "Start scanning from page #. Skip everything else before this page")
 	fetchCmd.Flags().BoolP("reverse", "r", false, "Reverse order")
 	fetchCmd.Flags().BoolP("allrarity", "a", false, "get all rarity (sp, ssp, sbr, etc...)")
 	fetchCmd.Flags().StringP("export", "e", "card", "export value: card, booster, all")
@@ -416,8 +159,7 @@ func init() {
 
 	viper.BindPFlag("boosterDir", fetchCmd.Flags().Lookup("boosterDir"))
 	viper.BindPFlag("cardDir", fetchCmd.Flags().Lookup("cardDir"))
-	viper.BindPFlag("page", fetchCmd.Flags().Lookup("page"))
-	viper.BindPFlag("iter", fetchCmd.Flags().Lookup("iter"))
+	viper.BindPFlag("pagestart", fetchCmd.Flags().Lookup("pagestart"))
 	viper.BindPFlag("reverse", fetchCmd.Flags().Lookup("reverse"))
 	viper.BindPFlag("allrarity", fetchCmd.Flags().Lookup("allrarity"))
 	viper.BindPFlag("export", fetchCmd.Flags().Lookup("export"))

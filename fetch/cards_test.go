@@ -1,4 +1,4 @@
-package cmd
+package fetch
 
 import (
 	"os"
@@ -46,13 +46,13 @@ func TestRecentSwitch(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	recentFurnitures := getRecentFurnitures(doc)
-	if len(recentFurnitures) != 8 {
-		t.Errorf("Should be equal to 8: %v", recentFurnitures)
+	recentTasks := getTasksForRecentReleases(doc)
+	if len(recentTasks) != 8 {
+		t.Errorf("Should be equal to 8: %v", recentTasks)
 	}
 
-	for _, furni := range recentFurnitures {
-		expansion := furni.Values.Get("expansion")
+	for _, task := range recentTasks {
+		expansion := task.urlValues.Get("expansion")
 		if slices.Contains(expectedExpension, expansion) == false {
 			t.Errorf("Did not expect %v expansion", expansion)
 		}

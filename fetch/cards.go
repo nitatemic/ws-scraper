@@ -12,229 +12,393 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package fetch retrieves desired information from the [en.]ws-tcg.com websites.
 package fetch
 
 import (
-	"bytes"
 	"fmt"
 	"log"
+	"net/http"
+	"net/http/cookiejar"
 	"net/url"
-	"path"
-	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 
+	"golang.org/x/net/publicsuffix"
+
+	"github.com/Akenaide/biri"
 	"github.com/PuerkitoBio/goquery"
 )
 
-var re = regexp.MustCompile(`<img .*>`)
+const maxWorker int = 5
 
-var suffix = []string{
-	"SP",
-	"S",
-	"R",
+type SiteLanguage string
+
+const (
+	EN SiteLanguage = "EN"
+	JP SiteLanguage = "JP"
+)
+
+type siteConfig struct {
+	baseURL                  string
+	cardListURL              string
+	cardSearchURL            string
+	languageCode             string
+	nextButtonDistinguisher  string
+	resultTableDistinguisher string
+	supportRecentRelease     bool
 }
 
-var baseRarity = []string{
-	"C",
-	"CC",
-	"CR",
-	"FR",
-	"MR",
-	"PR",
-	"PS",
-	"R",
-	"RE",
-	"RR",
-	"RR+",
-	"TD",
-	"U",
-	"AR",
+var siteConfigs = map[SiteLanguage]siteConfig{
+	EN: {
+		baseURL:                  "https://en.ws-tcg.com/",
+		cardListURL:              "https://en.ws-tcg.com/cardlist/list/",
+		cardSearchURL:            "https://en.ws-tcg.com/cardlist/cardsearch/exec",
+		languageCode:             "EN",
+		nextButtonDistinguisher:  "[rel=\"next\"]",
+		resultTableDistinguisher: "#searchResult-table tr",
+		supportRecentRelease:     false,
+	},
+	JP: {
+		baseURL:                  "https://ws-tcg.com/",
+		cardListURL:              "https://ws-tcg.com/cardlist/",
+		cardSearchURL:            "https://ws-tcg.com/cardlist/search",
+		languageCode:             "JP",
+		nextButtonDistinguisher:  ".pager .next",
+		resultTableDistinguisher: ".search-result-table tr",
+		supportRecentRelease:     true,
+	},
 }
 
-var triggersMap = map[string]string{
-	"soul":     "SOUL",
-	"salvage":  "COMEBACK",
-	"draw":     "DRAW",
-	"stock":    "POOL",
-	"treasure": "TREASURE",
-	"shot":     "SHOT",
-	"bounce":   "RETURN",
-	"gate":     "GATE",
-	"standby":  "STANDBY",
-	"choice":   "CHOICE",
+type Booster struct {
+	SetCode string
+	Cards   []Card
 }
 
-func processInt(st string) string {
-	if strings.Contains(st, "-") {
-		st = "0"
-	}
-	return st
+type scrapeTask struct {
+	pageURLCh  chan string
+	pageRespCh chan *http.Response
+	siteConfig siteConfig
+	urlValues  url.Values
+	cookieJar  http.CookieJar
+	lastPage   int
+	wgPageScan *sync.WaitGroup
 }
 
-// ExtractData extract data to card
-func ExtractData(config siteConfig, mainHTML *goquery.Selection) Card {
-	var imgPlaceHolder string
-	ability := []string{}
-	complex := mainHTML.Find("h4 span").Last().Text()
-	defer func() {
-		if err := recover(); err != nil {
-			log.Printf("Panic for %v. Error=%v", complex, err)
-		}
-	}()
-	log.Println("Start card:", complex)
-	var set string
-	var setInfo []string
-	if strings.Contains(complex, "/") {
-		set = strings.Split(complex, "/")[0]
-		setInfo = strings.Split(strings.Split(complex, "/")[1], "-")
-	} else {
-		// TODO: deal with "BSF2024-03 PR" and similar cards
-		log.Println("Can't get set info from:", complex)
-	}
-	setName := strings.TrimSpace(strings.Split(mainHTML.Find("h4").Text(), ") -")[1])
-	imageCardURL, _ := mainHTML.Find("a img").Attr("src")
-	abilityNode, _ := mainHTML.Find("span").Last().Html()
-	imgURL, has := mainHTML.Find("span").Last().Find("img").Attr("src")
-
-	if has {
-		_, _imgPlaceHolder := path.Split(imgURL)
-		_imgPlaceHolder = strings.Split(_imgPlaceHolder, ".")[0]
-		imgPlaceHolder = fmt.Sprintf("[%v]", triggersMap[_imgPlaceHolder])
+func (s *scrapeTask) getLastPage() int {
+	log.Println(s.siteConfig.cardSearchURL, s.urlValues)
+	resp, err := http.PostForm(fmt.Sprintf("%v?page=%d", s.siteConfig.cardSearchURL, 1), s.urlValues)
+	if err != nil {
+		log.Fatalf("Error on getting last page: %v\n", err)
 	}
 
-	for _, line := range strings.Split(abilityNode, "<br/>") {
-		ability = append(ability, re.ReplaceAllString(line, imgPlaceHolder))
+	doc, err := goquery.NewDocumentFromReader(resp.Body)
+	if err != nil {
+		log.Fatalf("Error on getting last page parse: %v\n", err)
 	}
+	all := doc.Find(s.siteConfig.nextButtonDistinguisher)
 
-	infos := make(map[string]string)
-	mainHTML.Find(".unit").Each(func(i int, s *goquery.Selection) {
-		txt := strings.TrimSpace(s.Text())
-		switch {
-		// Color
-		case strings.HasPrefix(txt, "色：") || strings.HasPrefix(txt, "[Color]:"):
-			_, colorName := path.Split(s.Children().AttrOr("src", "yay"))
-			infos["color"] = strings.ToUpper(strings.Split(colorName, ".")[0])
-			// Card type
-		case strings.HasPrefix(txt, "種類：") || strings.HasPrefix(txt, "[Card Type]:"):
-			cType := strings.TrimSpace(strings.TrimPrefix(strings.TrimPrefix(txt, "種類："), "[Card Type]:"))
+	last, _ := strconv.Atoi(all.Prev().First().Text())
+	// default is 1, there no .pager .next if it's the only page
+	if last == 0 {
+		last = 1
+	}
+	log.Println("Last page is", last, " for :", s.urlValues)
+	s.lastPage = last
+	return last
+}
 
-			switch cType {
-			case "イベント", "Event":
-				infos["type"] = "EV"
-			case "キャラ", "Character":
-				infos["type"] = "CH"
-			case "クライマックス", "Climax":
-				infos["type"] = "CX"
-			}
-			// Cost
-		case strings.HasPrefix(txt, "コスト：") || strings.HasPrefix(txt, "[Cost]:"):
-			cost := strings.TrimSpace(strings.TrimPrefix(strings.TrimPrefix(txt, "コスト："), "[Cost]:"))
-			infos["cost"] = cost
-			// Flavor text
-		case strings.HasPrefix(txt, "フレーバー：") || strings.HasPrefix(txt, "[Flavor Text]:"):
-			flvr := strings.TrimSpace(strings.TrimPrefix(strings.TrimPrefix(txt, "フレーバー："), "[Flavor Text]:"))
-			infos["flavourText"] = flvr
-			// Level
-		case strings.HasPrefix(txt, "レベル：") || strings.HasPrefix(txt, "[Level]:"):
-			lvl := strings.TrimSpace(strings.TrimPrefix(strings.TrimPrefix(txt, "レベル："), "[Level]:"))
-			infos["level"] = lvl
-			// Power
-		case strings.HasPrefix(txt, "パワー：") || strings.HasPrefix(txt, "[Power]:"):
-			pwr := strings.TrimSpace(strings.TrimPrefix(strings.TrimPrefix(txt, "パワー："), "[Power]:"))
-			infos["power"] = pwr
-			// Rarity
-		case strings.HasPrefix(txt, "レアリティ：") || strings.HasPrefix(txt, "[Rarity]:"):
-			rarity := strings.TrimSpace(strings.TrimPrefix(strings.TrimPrefix(txt, "レアリティ："), "[Rarity]:"))
-			infos["rarity"] = rarity
-			// Side
-		case strings.HasPrefix(txt, "サイド：") || strings.HasPrefix(txt, "[Side]:"):
-			_, side := path.Split(s.Children().AttrOr("src", "yay"))
-			infos["side"] = strings.ToUpper(strings.Split(side, ".")[0])
-			// Soul
-		case strings.HasPrefix(txt, "ソウル：") || strings.HasPrefix(txt, "[Soul]:"):
-			infos["soul"] = strconv.Itoa(s.Children().Length())
-			// Trigger
-		case strings.HasPrefix(txt, "トリガー：") || strings.HasPrefix(txt, "[Trigger]:"):
-			var res bytes.Buffer
-			s.Children().Each(func(i int, ss *goquery.Selection) {
-				if i != 0 {
-					res.WriteString(" ")
+func getTasksForRecentReleases(doc *goquery.Document) []scrapeTask {
+	var tasks []scrapeTask
+	// Find all <a> elements with onclick attributes within the <ul> element
+	doc.Find("div.system > ul.expansion-list a[onclick]").Each(func(i int, sel *goquery.Selection) {
+		onclickAttr, exists := sel.Attr("onclick")
+		if exists {
+			// Extract the integer value from the onclick attribute
+			parts := strings.Split(onclickAttr, "('")
+			if len(parts) >= 2 {
+				value := strings.TrimSuffix(parts[1], "')")
+				urlValues := url.Values{
+					"cmd":             {"search"},
+					"show_page_count": {"100"},
+					"show_small":      {"0"},
+					"parallel":        {"0"},
+					"expansion":       {value},
 				}
-				_, trigger := path.Split(ss.AttrOr("src", "yay"))
-				res.WriteString(triggersMap[strings.Split(trigger, ".")[0]])
-			})
-			infos["trigger"] = strings.ToUpper(strings.TrimSpace(res.String()))
-			// Trait
-		case strings.HasPrefix(txt, "特徴：") || strings.HasPrefix(txt, "[Special Attribute]:"):
-			var res bytes.Buffer
-			s.Children().Each(func(i int, ss *goquery.Selection) {
-				res.WriteString(strings.TrimSpace(ss.Text()))
-			})
-			if strings.Contains(res.String(), "-") {
-				infos["specialAttribute"] = ""
-			} else {
-				infos["specialAttribute"] = strings.TrimSpace(res.String())
+				tasks = append(tasks, scrapeTask{urlValues: urlValues})
 			}
-		default:
-			log.Println("Unknown:", txt)
 		}
 	})
+	return tasks
+}
 
-	card := Card{
-		Name:        strings.TrimSpace(mainHTML.Find("h4 span").First().Text()),
-		Set:         set,
-		SetName:     setName,
-		Side:        infos["side"],
-		CardType:    infos["type"],
-		Level:       processInt(infos["level"]),
-		FlavourText: infos["flavourText"],
-		Colour:      infos["color"],
-		Power:       processInt(infos["power"]),
-		Soul:        infos["soul"],
-		Cost:        processInt(infos["cost"]),
-		Rarity:      infos["rarity"],
-		Ability:     ability,
-		Version:     CardModelVersion,
-		Cardcode:    complex,
+func pageFetchWorker(id int, task *scrapeTask) {
+	for link := range task.pageURLCh {
+		log.Println("ID :", id, "Fetch page : ", link, "with params : ", task.urlValues)
+		proxy := biri.GetClient()
+		log.Println("Got proxy")
+		proxy.Client.Jar = task.cookieJar
+
+		resp, err := proxy.Client.PostForm(link, task.urlValues)
+		if err != nil || resp.StatusCode != http.StatusOK {
+			log.Println("Ban proxy:", err)
+			proxy.Ban()
+			// Retry again later
+			task.pageURLCh <- link
+		} else {
+			proxy.Readd()
+			task.pageRespCh <- resp
+		}
 	}
-	if fullURL, err := url.JoinPath(config.baseURL, imageCardURL); err == nil {
-		card.ImageURL = fullURL
+	log.Println("Page fetch worker", id, "done")
+}
+
+func pageScanWorker(
+	id int,
+	task *scrapeTask,
+	wgCardSel *sync.WaitGroup,
+	cardSelCh chan<- *goquery.Selection,
+) {
+	for resp := range task.pageRespCh {
+		log.Printf("Start page: %v", resp.Request.URL)
+		doc, err := goquery.NewDocumentFromReader(resp.Body)
+		if err != nil {
+			task.pageURLCh <- resp.Request.URL.String()
+			log.Println("goquery error: ", err, "for page: ", resp.Request.URL)
+			continue
+		}
+		resultTable := doc.Find(task.siteConfig.resultTableDistinguisher)
+
+		if resultTable.Length() == 0 && resp.StatusCode == http.StatusOK {
+			log.Println("No cards on response page")
+		} else {
+			log.Println("Found cards !!", resp.Request.URL)
+			resultTable.Each(func(i int, s *goquery.Selection) {
+				wgCardSel.Add(1)
+				cardSelCh <- s
+			})
+		}
+		task.wgPageScan.Done()
+		log.Printf("Finish page: %v", resp.Request.URL)
+	}
+	log.Println("Page scan worker", id, "done")
+}
+
+func extractWorker(siteCfg siteConfig, wgCardSel *sync.WaitGroup, cardSelChan chan *goquery.Selection, cardCh chan<- Card) {
+	for s := range cardSelChan {
+		c := extractData(siteCfg, s)
+		cardCh <- c
+		wgCardSel.Done()
+	}
+}
+
+type reducer interface {
+	reduce(config reducerConfig)
+}
+
+type reducerConfig struct {
+	wg     *sync.WaitGroup
+	cardCh chan Card
+}
+
+type cardListReducer struct {
+	cards []Card
+}
+
+func (clr *cardListReducer) reduce(rc reducerConfig) {
+	for c := range rc.cardCh {
+		clr.cards = append(clr.cards, c)
+	}
+	rc.wg.Done()
+}
+
+type boosterReducer struct {
+	boosterMap map[string]Booster
+}
+
+func (br *boosterReducer) reduce(rc reducerConfig) {
+	for c := range rc.cardCh {
+		boosterCode := c.Release
+		boosterObj := br.boosterMap[boosterCode]
+
+		boosterObj.Cards = append(boosterObj.Cards, c)
+		br.boosterMap[boosterCode] = boosterObj
+	}
+	rc.wg.Done()
+}
+
+func prepareBiri(cfg siteConfig) {
+	biri.Config.PingServer = cfg.baseURL
+	biri.Config.TickMinuteDuration = 1
+	biri.Config.Timeout = 25
+}
+
+type Config struct {
+	// The website's internal code for each set. The value is language-specific.
+	// For example, 1 is for "D.C. D.C.II" in JP, but is for "Puella Magi Madoka Magica" in EN.
+	ExpansionNumber int
+	GetAllRarities  bool
+	GetRecent       bool
+	Language        SiteLanguage
+	PageStart       int
+	Reverse         bool
+	SetCode         []string
+}
+
+func CardsStream(cfg Config, cardCh chan<- Card) error {
+	var siteCfg siteConfig
+	if c, ok := siteConfigs[cfg.Language]; !ok {
+		log.Fatalf("Unsupported language: %q\n", cfg.Language)
 	} else {
-		log.Printf("Couldn't form full image URL: %v\n", err)
-		card.ImageURL = imageCardURL
+		siteCfg = c
+		log.Printf("Fetching %s cards\n", cfg.Language)
 	}
-	if infos["specialAttribute"] != "" {
-		card.SpecialAttrib = strings.Split(infos["specialAttribute"], "・")
-	}
-	if infos["trigger"] != "" {
-		card.Trigger = strings.Split(infos["trigger"], " ")
-	}
-	if len(setInfo) > 1 {
-		card.Release = setInfo[0]
-		card.ID = setInfo[1]
-	}
-	if config.languageCode == "JP" {
-		card.JpName = card.Name
-	}
-	return card
-}
 
-// IsbaseRarity check if a card is a C / U / R / RR
-func IsbaseRarity(card Card) bool {
-	for _, rarity := range baseRarity {
-		if rarity == card.Rarity && isTrullyNotFoil(card) {
-			return true
+	log.Println("Streaming cards with config:", cfg)
+
+	prepareBiri(siteCfg)
+	jar, err := cookiejar.New(&cookiejar.Options{PublicSuffixList: publicsuffix.List})
+	if err != nil {
+		err = fmt.Errorf("failed to get new cookiejar: %v", err)
+		log.Fatal(err)
+		return err
+	}
+
+	biri.ProxyStart()
+
+	urlValues := url.Values{
+		"cmd":             {"search"},
+		"show_page_count": {"100"},
+		"show_small":      {"0"},
+	}
+	if cfg.ExpansionNumber != 0 {
+		urlValues.Add("expansion", strconv.Itoa(cfg.ExpansionNumber))
+	}
+	if cfg.GetAllRarities {
+		urlValues.Add("parallel", "0")
+	} else {
+		urlValues.Add("parallel", "1")
+	}
+	if len(cfg.SetCode) > 0 {
+		urlValues.Add("title_number", fmt.Sprintf("##%s##", strings.Join(cfg.SetCode, "##")))
+	}
+
+	var scrapeTasks []*scrapeTask
+	defaultScrapeTask := scrapeTask{
+		cookieJar:  jar,
+		siteConfig: siteCfg,
+		urlValues:  urlValues,
+	}
+	if cfg.GetRecent {
+		if !siteCfg.supportRecentRelease {
+			err := fmt.Errorf("can't get recent releases for %s site", cfg.Language)
+			log.Fatalln(err)
+			return err
+		}
+		resp, err := http.Get(siteCfg.cardListURL)
+		if err != nil {
+			log.Fatal("Error on get recent")
+		}
+		doc, err := goquery.NewDocumentFromReader(resp.Body)
+		if err != nil {
+			log.Fatal("Error on parse recent")
+		}
+		for _, recent := range getTasksForRecentReleases(doc) {
+			copyTask := defaultScrapeTask
+			copyTask.urlValues = recent.urlValues
+			log.Println(defaultScrapeTask, recent)
+			scrapeTasks = append(scrapeTasks, &copyTask)
+		}
+	} else {
+		scrapeTasks = append(scrapeTasks, &defaultScrapeTask)
+	}
+
+	loopNum := 0
+	for _, st := range scrapeTasks {
+		lastPage := st.getLastPage()
+		loopNum += lastPage
+		st.pageURLCh = make(chan string, lastPage)
+		st.pageRespCh = make(chan *http.Response, maxWorker)
+		st.wgPageScan = &sync.WaitGroup{}
+		st.wgPageScan.Add(lastPage)
+	}
+
+	log.Printf("Number of loop %v\n", loopNum)
+
+	var wgScanner, wgCardSel sync.WaitGroup
+	cardSelCh := make(chan *goquery.Selection)
+	for i := 0; i < maxWorker; i++ {
+		go extractWorker(siteCfg, &wgCardSel, cardSelCh, cardCh)
+	}
+	for _, st := range scrapeTasks {
+		wgScanner.Add(1)
+		go func(s *scrapeTask) {
+			// Wait for page scanning to finish instead of the fetch workers because
+			// sometimes the scanners put work back in the fetch channel.
+			s.wgPageScan.Wait()
+			close(s.pageURLCh)
+			close(s.pageRespCh)
+			wgScanner.Done()
+		}(st)
+		for i := 0; i < maxWorker; i++ {
+			go pageFetchWorker(i, st)
+			go pageScanWorker(i, st, &wgCardSel, cardSelCh)
+		}
+		for i := 1; i <= st.lastPage; i++ {
+			if i < cfg.PageStart {
+				// Skip everything before this page. Mark as done so the routines aren't waiting for it.
+				st.wgPageScan.Done()
+				continue
+			}
+
+			id := i
+			if cfg.Reverse {
+				id = st.lastPage - i + 1
+			}
+			st.pageURLCh <- fmt.Sprintf("%v?page=%d", siteCfg.cardSearchURL, id)
 		}
 	}
-	return false
+
+	wgScanner.Wait()
+	wgCardSel.Wait()
+	close(cardSelCh)
+	close(cardCh)
+	biri.Done()
+
+	return nil
 }
 
-func isTrullyNotFoil(card Card) bool {
-	for _, _suffix := range suffix {
-		if strings.HasSuffix(card.ID, _suffix) {
-			return false
-		}
+func aggregate(cfg Config, r reducer) error {
+	cardCh := make(chan Card, maxWorker)
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+
+	reducerCfg := reducerConfig{
+		wg:     &wg,
+		cardCh: cardCh,
 	}
-	return true
+
+	go r.reduce(reducerCfg)
+
+	err := CardsStream(cfg, cardCh)
+
+	wg.Wait()
+
+	return err
+}
+
+func Cards(cfg Config) ([]Card, error) {
+	var reducer cardListReducer
+	err := aggregate(cfg, &reducer)
+
+	return reducer.cards, err
+}
+
+func Boosters(cfg Config) (map[string]Booster, error) {
+	var reducer boosterReducer
+	err := aggregate(cfg, &reducer)
+
+	return reducer.boosterMap, err
 }

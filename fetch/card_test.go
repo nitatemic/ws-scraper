@@ -1,4 +1,4 @@
-package cmd
+package fetch
 
 import (
 	"log"
@@ -66,10 +66,7 @@ func TestExtractData_jp(t *testing.T) {
 		log.Fatal(err)
 	}
 
-	card := ExtractData(siteConfigs["JP"], doc.Clone())
-	if card.JpName != "“私達、参上っ！”上原ひまり" {
-		t.Errorf("got %v: expected “私達、参上っ！”上原ひまり", card.JpName)
-	}
+	card := extractData(siteConfigs[JP], doc.Clone())
 	if card.Name != "“私達、参上っ！”上原ひまり" {
 		t.Errorf("got %v: expected “私達、参上っ！”上原ひまり", card.Name)
 	}
@@ -141,13 +138,13 @@ func TestExtractDataEvent_jp(t *testing.T) {
 	`
 
 	doc, err := goquery.NewDocumentFromReader(strings.NewReader(chara))
-	expectedTrigger := []string{}
+	var expectedTrigger []string
 
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	card := ExtractData(siteConfigs["JP"], doc.Clone())
+	card := extractData(siteConfigs[JP], doc.Clone())
 	if card.Name != "ミッシェルからの伝言" {
 		t.Errorf("got %v: expected ミッシェルからの伝言", card.Name)
 	}
@@ -201,7 +198,7 @@ func TestExtractDataCX_jp(t *testing.T) {
 		log.Fatal(err)
 	}
 
-	card := ExtractData(siteConfigs["JP"], doc.Clone())
+	card := extractData(siteConfigs[JP], doc.Clone())
 
 	if card.CardType != "CX" {
 		t.Errorf("got %v: expected CX", card.CardType)
@@ -257,7 +254,7 @@ func TestExtractData_en(t *testing.T) {
 `
 
 	doc, err := goquery.NewDocumentFromReader(strings.NewReader(chara))
-	expectedTrigger := []string{}
+	var expectedTrigger []string
 	expectedTrait := []string{"Master", "Love"}
 	expectedAbility := []string{"【AUTO】 When this card is placed on the stage from your hand, choose 1 of your 《Master》 or 《Servant》 characters, and that character gets +1500 power until end of turn."}
 
@@ -265,10 +262,7 @@ func TestExtractData_en(t *testing.T) {
 		log.Fatal(err)
 	}
 
-	card := ExtractData(siteConfigs["EN"], doc.Clone())
-	if card.JpName != "" {
-		t.Errorf("got %v: expected ''", card.JpName)
-	}
+	card := extractData(siteConfigs[EN], doc.Clone())
 	if card.Name != "EGOISTIC, Sakura" {
 		t.Errorf("got %v: expected EGOISTIC, Sakura", card.Name)
 	}
@@ -350,7 +344,7 @@ func TestExtractDataEvent_en(t *testing.T) {
 		log.Fatal(err)
 	}
 
-	card := ExtractData(siteConfigs["EN"], doc.Clone())
+	card := extractData(siteConfigs[EN], doc.Clone())
 
 	if card.CardType != "EV" {
 		t.Errorf("got %v: expected EV", card.CardType)
@@ -360,7 +354,7 @@ func TestExtractDataEvent_en(t *testing.T) {
 		t.Errorf("got %v: expected The Day Yuji Disappeared", card.Name)
 	}
 
-	expectedTrigger := []string{}
+	var expectedTrigger []string
 	if !equalSlice(card.Trigger, expectedTrigger) {
 		t.Errorf("got %v: expected %v", card.Trigger, expectedTrigger)
 	}
@@ -419,7 +413,7 @@ func TestExtractDataCX_en(t *testing.T) {
 		log.Fatal(err)
 	}
 
-	card := ExtractData(siteConfigs["EN"], doc.Clone())
+	card := extractData(siteConfigs[EN], doc.Clone())
 
 	if card.CardType != "CX" {
 		t.Errorf("got %v: expected CX", card.CardType)
