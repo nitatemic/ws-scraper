@@ -281,7 +281,16 @@ func CardsStream(cfg Config, cardCh chan<- Card) error {
 		urlValues.Add("parallel", "1")
 	}
 	if len(cfg.SetCode) > 0 {
-		urlValues.Add("title_number", fmt.Sprintf("##%s##", strings.Join(cfg.SetCode, "##")))
+		switch cfg.Language {
+		case EN:
+			urlValues.Add("keyword_or", strings.Join(cfg.SetCode, " "))
+			urlValues.Add("keyword_cardname", "0")
+			urlValues.Add("keyword_feature", "0")
+			urlValues.Add("keyword_text", "0")
+			urlValues.Add("keyword_cardnumber", "1")
+		case JP:
+			urlValues.Add("title_number", fmt.Sprintf("##%s##", strings.Join(cfg.SetCode, "##")))
+		}
 	}
 
 	var scrapeTasks []*scrapeTask
