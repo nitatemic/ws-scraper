@@ -102,6 +102,13 @@ Use global switches to specify the set, by default it will fetch all sets.`,
 				log.Fatalf("Invalid expansion number: %v\n", err)
 			}
 		}
+		if titleNumber != "" {
+			if t, err := strconv.Atoi(titleNumber); err == nil {
+				cfg.TitleNumber = t
+			} else {
+				log.Fatalf("Invalid title number: %v\n", err)
+			}
+		}
 		if neo != "" {
 			cfg.SetCode = strings.Split(neo, "##")
 		}

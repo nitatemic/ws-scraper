@@ -26,6 +26,7 @@ import (
 var (
 	cfgFile     string
 	serieNumber string
+	titleNumber string
 	neo         string
 )
 
@@ -42,7 +43,7 @@ Example:
 
 If you want more than one use '##' as seperator like 'wsoffcli fetch -n BD##IM'
 
-'--serie' use a hidden number in the official site, this number is increment for each new set (e.g Kadokawa is number 259, Goblin 260 ...).
+'--expansion' use a hidden number in the official site, this number is increment for each new expansion (e.g Kadokawa is number 259, Goblin 260 in JP ...).
 
 To use environ variable, use the prefix 'WSOFF'.
 	 `,
@@ -67,7 +68,8 @@ func init() {
 	// Here you will define your flags and configuration settings.
 	// Cobra supports persistent flags, which, if defined here,
 	// will be global for your application.
-	rootCmd.PersistentFlags().StringVarP(&serieNumber, "serie", "s", "", "serie number")
+	rootCmd.PersistentFlags().StringVarP(&serieNumber, "expansion", "", "", "expansion number")
+	rootCmd.PersistentFlags().StringVarP(&titleNumber, "title", "t", "", "title number")
 	rootCmd.PersistentFlags().StringVarP(&neo, "neo", "n", "", "Neo standar by set")
 }
 

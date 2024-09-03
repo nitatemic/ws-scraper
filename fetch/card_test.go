@@ -129,7 +129,7 @@ func TestExtractData_jp(t *testing.T) {
 	}
 
 	if err != nil {
-		log.Fatal(err)
+		t.Fatal(err)
 	}
 
 	card := extractData(siteConfigs[JP], doc.Clone())
@@ -207,7 +207,7 @@ func TestExtractDataEvent_jp(t *testing.T) {
 	var expectedTrigger []string
 
 	if err != nil {
-		log.Fatal(err)
+		t.Fatal(err)
 	}
 
 	card := extractData(siteConfigs[JP], doc.Clone())
@@ -263,7 +263,7 @@ func TestExtractDataCX_jp(t *testing.T) {
 
 	doc, err := goquery.NewDocumentFromReader(strings.NewReader(chara))
 	if err != nil {
-		log.Fatal(err)
+		t.Fatal(err)
 	}
 
 	card := extractData(siteConfigs[JP], doc.Clone())
@@ -297,121 +297,286 @@ func TestExtractDataCX_jp(t *testing.T) {
 
 func TestExtractData_en(t *testing.T) {
 	chara := `
-<th><a href="https://en.ws-tcg.com/cardlist/list/?cardno=FS/BCS2019-03"><img src="/wp/wp-content/images/cardimages/f/fs_s64/FS_BCS_2019_03.png" alt="EGOISTIC, Sakura"></a></th>
-<td>
-<h4>
-<a href="https://en.ws-tcg.com/cardlist/list/?cardno=FS/BCS2019-03"><span class="highlight_target">EGOISTIC, Sakura</span>(<span class="highlight_target">FS/BCS2019-03</span>)</a> - PR Card 【Schwarz Side】<br>
-</h4>
-<span class="unit">
-[Side]: <img src="/wp/wp-content/images/partimages/s.gif">
-</span>
-<span class="unit">[Card Type]: Character</span>
-<span class="unit">[Level]: 0</span><br>
-<span class="unit">[Color]: <img src="../partimages/green.gif"></span>
-<span class="unit">[Power]: 2000</span>
-<span class="unit">[Soul]: <img src="../partimages/soul.gif"></span>
-<span class="unit">[Cost]: 0</span><br>
-<span class="unit">[Rarity]: PR</span>
-<span class="unit">[Trigger]: -</span>
-<span class="unit">[Special Attribute]: <span class="highlight_target">Master・Love</span></span><br>
-
-<span class="unit">[Flavor Text]: <span>I wish someone like this didn't exist.</span></span><br>
-<br>
-<span class="highlight_target">【AUTO】 When this card is placed on the stage from your hand, choose 1 of your 《Master》 or 《Servant》 characters, and that character gets +1500 power until end of turn.</span>
-
-
-</td>
+<div class="p-cards__detail-wrapper">
+	<div class="p-cards__detail-wrapper-inner">
+		<div class="image"><img src="/wp/wp-content/images/cardimages/f/fs_s64/FS_BCS_2019_03.png" alt="EGOISTIC, Sakura" decoding="async">
+		</div>
+		<div class="p-cards__detail-textarea">
+		<p class="number">FS/BCS2019-03</p>
+		<p class="ttl u-mt-14 u-mt-16-sp">EGOISTIC, Sakura</p>
+		<div class="p-cards__detail-type u-mt-22 u-mt-40-sp">
+			<dl>
+			<dt>Expansion</dt>
+			<dd>PR Card 【Schwarz Side】</dd>
+			</dl>
+			<dl>
+			<dt>Traits</dt>
+			<dd>Master・Love</dd>
+			</dl>
+			<dl>
+			<dt>Card Type</dt>
+			<dd>Character</dd>
+			</dl>
+			<dl>
+			<dt>Rarity</dt>
+			<dd>PR</dd>
+			</dl>
+			<dl>
+			<dt>Side</dt>
+			<dd>
+								<img src="/cardlist/partimages/s.gif" alt="" decoding="async">
+								</dd>
+			</dl>
+			<dl>
+			<dt>Color</dt>
+			<dd><img src="/wp/wp-content/images/partimages/green.gif"></dd>
+			</dl>
+		</div>
+		<div class="p-cards__detail-status u-mt-22 u-mt-40-sp">
+			<dl>
+			<dt>Level</dt>
+			<dd>0</dd>
+			</dl>
+			<dl>
+			<dt>Cost</dt>
+			<dd>0</dd>
+			</dl>
+			<dl>
+			<dt>Power</dt>
+			<dd>2000</dd>
+			</dl>
+			<dl>
+			<dt>Trigger</dt>
+			<dd>-</dd>
+			</dl>
+			<dl>
+			<dt>Soul</dt>
+			<dd><img src="/wp/wp-content/images/partimages/soul.gif"></dd>
+			</dl>
+		</div>
+		<div class="p-cards__detail u-mt-22 u-mt-40-sp">
+			<p>【AUTO】 When this card is placed on the stage from your hand, choose 1 of your 《Master》 or 《Servant》 characters, and that character gets +1500 power until end of turn.</p>
+		</div>
+		<div class="p-cards__detail-serif u-mt-22 u-mt-40-sp">
+			<p>I wish someone like this didn't exist.</p>
+		</div>
+		<p class="p-cards__detail-copyrights u-mt-22 u-mt-40-sp">©TYPE-MOON, ufotable, FSNPC</p>
+		</div>
+	</div>
+</div>
 `
 
 	doc, err := goquery.NewDocumentFromReader(strings.NewReader(chara))
-	var expectedTrigger []string
-	expectedTrait := []string{"Master", "Love"}
-	expectedAbility := []string{"【AUTO】 When this card is placed on the stage from your hand, choose 1 of your 《Master》 or 《Servant》 characters, and that character gets +1500 power until end of turn."}
-
 	if err != nil {
-		log.Fatal(err)
+		t.Fatal(err)
 	}
 
 	card := extractData(siteConfigs[EN], doc.Clone())
-	if card.Name != "EGOISTIC, Sakura" {
-		t.Errorf("got %v: expected EGOISTIC, Sakura", card.Name)
+	expectedCard := Card{
+		Name:          "EGOISTIC, Sakura",
+		ExpansionName: "PR Card 【Schwarz Side】",
+		Cardcode:      "FS/BCS2019-03",
+		Set:           "FS",
+		Side:          "S",
+		Release:       "BCS2019",
+		ID:            "03",
+		Level:         "0",
+		Colour:        "GREEN",
+		Power:         "2000",
+		Soul:          "1",
+		Cost:          "0",
+		CardType:      "CH",
+		Rarity:        "PR",
+		FlavourText:   "I wish someone like this didn't exist.",
+		SpecialAttrib: []string{"Master", "Love"},
+		Ability:       []string{"【AUTO】 When this card is placed on the stage from your hand, choose 1 of your 《Master》 or 《Servant》 characters, and that character gets +1500 power until end of turn."},
+		ImageURL:      "https://en.ws-tcg.com/wp/wp-content/images/cardimages/f/fs_s64/FS_BCS_2019_03.png",
+		Version:       CardModelVersion,
 	}
-	if card.Set != "FS" {
-		t.Errorf("got %v: expected FS", card.Set)
+	assertCardEquals(t, card, expectedCard)
+}
+
+func TestExtractData_en_multiIconAbility(t *testing.T) {
+	character := `
+<div class="p-cards__detail-wrapper">
+	<div class="p-cards__detail-wrapper-inner">
+		<div class="image"><img src="/wp/wp-content/images/cardimages/ATLA/BP/ATLA_WX04_007S.png" alt="Aang: Learning Avatar State" decoding="async">
+		</div>
+		<div class="p-cards__detail-textarea">
+		<p class="number">ATLA/WX04-007S</p>
+		<p class="ttl u-mt-14 u-mt-16-sp">Aang: Learning Avatar State</p>
+		<div class="p-cards__detail-type u-mt-22 u-mt-40-sp">
+			<dl>
+			<dt>Expansion</dt>
+			<dd>Avatar: The Last Airbender</dd>
+			</dl>
+			<dl>
+			<dt>Traits</dt>
+			<dd>World of Avatar・Air Nomads</dd>
+			</dl>
+			<dl>
+			<dt>Card Type</dt>
+			<dd>Character</dd>
+			</dl>
+			<dl>
+			<dt>Rarity</dt>
+			<dd>SR</dd>
+			</dl>
+			<dl>
+			<dt>Side</dt>
+			<dd>
+								<img src="/cardlist/partimages/w.gif" alt="" decoding="async">
+								</dd>
+			</dl>
+			<dl>
+			<dt>Color</dt>
+			<dd><img src="/wp/wp-content/images/partimages/yellow.gif"></dd>
+			</dl>
+		</div>
+		<div class="p-cards__detail-status u-mt-22 u-mt-40-sp">
+			<dl>
+			<dt>Level</dt>
+			<dd>2</dd>
+			</dl>
+			<dl>
+			<dt>Cost</dt>
+			<dd>1</dd>
+			</dl>
+			<dl>
+			<dt>Power</dt>
+			<dd>1000</dd>
+			</dl>
+			<dl>
+			<dt>Trigger</dt>
+			<dd><img src="/wp/wp-content/images/partimages/soul.gif"></dd>
+			</dl>
+			<dl>
+			<dt>Soul</dt>
+			<dd>-</dd>
+			</dl>
+		</div>
+		<div class="p-cards__detail u-mt-22 u-mt-40-sp">
+			<p>【CONT】 If your climax area has a climax with <img src="/wp/wp-content/images/partimages/choice.gif"> in its trigger icon, this card in all of your zones get <img src="/wp/wp-content/images/partimages/choice.gif"> in the trigger icon. If there is a climax with <img src="/wp/wp-content/images/partimages/treasure.gif"> in its trigger icon, this card in all of your zones get <img src="/wp/wp-content/images/partimages/treasure.gif"> in the trigger icon. If there is a climax with <img src="/wp/wp-content/images/partimages/standby.gif"> in its trigger icon, this card in all of your zones get <img src="/wp/wp-content/images/partimages/standby.gif"> in the trigger icon. If there is a climax with <img src="/wp/wp-content/images/partimages/gate.gif"> in its trigger icon, this card in all of your zones get <img src="/wp/wp-content/images/partimages/gate.gif"> in the trigger icon.<br>【AUTO】 【CLOCK】 Alarm If this card is the top card of your clock, and you have 4 or more 《World of Avatar》 characters, at the beginning of your climax phase, you may put the top card of your deck into your stock.</p>
+		</div>
+		<div class="p-cards__detail-serif u-mt-22 u-mt-40-sp">
+			<p>-</p>
+		</div>
+		<p class="p-cards__detail-copyrights u-mt-22 u-mt-40-sp">©2023 Viacom International Inc. All Rights Reserved.</p>
+		</div>
+	</div>
+</div>
+`
+
+	doc, err := goquery.NewDocumentFromReader(strings.NewReader(character))
+	if err != nil {
+		t.Fatal(err)
 	}
-	if card.Side != "S" {
-		t.Errorf("got %v: expected S", card.Side)
+
+	expectedCard := Card{
+		Name:          "Aang: Learning Avatar State",
+		ExpansionName: "Avatar: The Last Airbender",
+		Set:           "ATLA",
+		Side:          "W",
+		Release:       "WX04",
+		ID:            "007S",
+		Colour:        "YELLOW",
+		CardType:      "CH",
+		Cardcode:      "ATLA/WX04-007S",
+		Soul:          "0",
+		Level:         "2",
+		Cost:          "1",
+		FlavourText:   "",
+		Power:         "1000",
+		Rarity:        "SR",
+		ImageURL:      "https://en.ws-tcg.com/wp/wp-content/images/cardimages/ATLA/BP/ATLA_WX04_007S.png",
+		Version:       CardModelVersion,
+		Trigger:       []string{"SOUL"},
+		SpecialAttrib: []string{"World of Avatar", "Air Nomads"},
+		Ability: []string{
+			"【CONT】 If your climax area has a climax with [CHOICE] in its trigger icon, this card in all of your zones get [CHOICE] in the trigger icon. If there is a climax with [TREASURE] in its trigger icon, this card in all of your zones get [TREASURE] in the trigger icon. If there is a climax with [STANDBY] in its trigger icon, this card in all of your zones get [STANDBY] in the trigger icon. If there is a climax with [GATE] in its trigger icon, this card in all of your zones get [GATE] in the trigger icon.",
+			"【AUTO】 【CLOCK】 Alarm If this card is the top card of your clock, and you have 4 or more 《World of Avatar》 characters, at the beginning of your climax phase, you may put the top card of your deck into your stock.",
+		},
 	}
-	if card.Release != "BCS2019" {
-		t.Errorf("got %v: expected BCS2019", card.Release)
-	}
-	if card.ID != "03" {
-		t.Errorf("got %v: expected 03", card.ID)
-	}
-	if card.Level != "0" {
-		t.Errorf("got %v: expected 0", card.Level)
-	}
-	if card.Colour != "GREEN" {
-		t.Errorf("got %v: expected GREEN", card.Colour)
-	}
-	if card.Power != "2000" {
-		t.Errorf("got %v: expected 2000", card.Power)
-	}
-	if card.Soul != "1" {
-		t.Errorf("got %v: expected 1", card.Soul)
-	}
-	if card.Cost != "0" {
-		t.Errorf("got %v: expected 0", card.Cost)
-	}
-	if card.CardType != "CH" {
-		t.Errorf("got %v: expected CH", card.CardType)
-	}
-	if card.Rarity != "PR" {
-		t.Errorf("got %v: expected PR", card.Rarity)
-	}
-	if !equalSlice(card.Trigger, expectedTrigger) {
-		t.Errorf("got %v: expected %v", card.Trigger, expectedTrigger)
-	}
-	if !equalSlice(card.SpecialAttrib, expectedTrait) {
-		t.Errorf("got %v: expected %v", card.SpecialAttrib, expectedTrait)
-	}
-	if !equalSlice(card.Ability, expectedAbility) {
-		t.Errorf("got \n %v: expected \n %v", card.Ability, expectedAbility)
-	}
+
+	card := extractData(siteConfigs[EN], doc.Clone())
+	assertCardEquals(t, card, expectedCard)
 }
 
 func TestExtractDataEvent_en(t *testing.T) {
 	event := `
-<th><a href="https://en.ws-tcg.com/cardlist/list/?cardno=SS/WE41-E17"><img src="/wp/wp-content/images/cardimages/SS/WE41_E17.png" alt="The Day Yuji Disappeared"></a></th>
-<td>
-<h4>
-<a href="https://en.ws-tcg.com/cardlist/list/?cardno=SS/WE41-E17" class=""><span class="highlight_target">The Day Yuji Disappeared</span>(<span class="highlight_target">SS/WE41-E17</span>)</a> - Shakugan no Shana<br>
-</h4>
-<span class="unit">
-[Side]: <img src="/wp/wp-content/images/partimages/w.gif">
-</span>
-<span class="unit">[Card Type]: Event</span>
-<span class="unit">[Level]: 2</span><br>
-<span class="unit">[Color]: <img src="../partimages/yellow.gif"></span>
-<span class="unit">[Power]: -</span>
-<span class="unit">[Soul]: -</span>
-<span class="unit">[Cost]: 1</span><br>
-<span class="unit">[Rarity]: N</span>
-<span class="unit">[Trigger]: －</span>
-<span class="unit">[Special Attribute]: <span class="highlight_target">-・-</span></span><br>
-
-<span class="unit">[Flavor Text]: <span>Yuji...</span></span><br>
-<br>
-<span class="highlight_target">Search your deck for up to 2 《Flame》 characters, reveal them to your opponent, put them into your hand, choose 1 card in your hand, put it into your waiting room, and shuffle your deck.<br>Put this card into your memory.<br></span>
-
-
-</td>
-	`
+<div class="p-cards__detail-wrapper">
+	<div class="p-cards__detail-wrapper-inner">
+		<div class="image"><img src="/wp/wp-content/images/cardimages/SS/WE41_E17.png" alt="The Day Yuji Disappeared" decoding="async">
+		</div>
+		<div class="p-cards__detail-textarea">
+		<p class="number">SS/WE41-E17</p>
+		<p class="ttl u-mt-14 u-mt-16-sp">The Day Yuji Disappeared</p>
+		<div class="p-cards__detail-type u-mt-22 u-mt-40-sp">
+			<dl>
+			<dt>Expansion</dt>
+			<dd>[EX] Shakugan no Shana</dd>
+			</dl>
+			<dl>
+			<dt>Traits</dt>
+			<dd></dd>
+			</dl>
+			<dl>
+			<dt>Card Type</dt>
+			<dd>Event</dd>
+			</dl>
+			<dl>
+			<dt>Rarity</dt>
+			<dd>N</dd>
+			</dl>
+			<dl>
+			<dt>Side</dt>
+			<dd>
+								<img src="/cardlist/partimages/w.gif" alt="" decoding="async">
+								</dd>
+			</dl>
+			<dl>
+			<dt>Color</dt>
+			<dd><img src="/wp/wp-content/images/partimages/yellow.gif"></dd>
+			</dl>
+		</div>
+		<div class="p-cards__detail-status u-mt-22 u-mt-40-sp">
+			<dl>
+			<dt>Level</dt>
+			<dd>2</dd>
+			</dl>
+			<dl>
+			<dt>Cost</dt>
+			<dd>1</dd>
+			</dl>
+			<dl>
+			<dt>Power</dt>
+			<dd>-</dd>
+			</dl>
+			<dl>
+			<dt>Trigger</dt>
+			<dd>－</dd>
+			</dl>
+			<dl>
+			<dt>Soul</dt>
+			<dd>-</dd>
+			</dl>
+		</div>
+		<div class="p-cards__detail u-mt-22 u-mt-40-sp">
+			<p>Search your deck for up to 2 《Flame》 characters, reveal them to your opponent, put them into your hand, choose 1 card in your hand, put it into your waiting room, and shuffle your deck.<br>Put this card into your memory.<br></p>
+		</div>
+		<div class="p-cards__detail-serif u-mt-22 u-mt-40-sp">
+			<p>Yuji...</p>
+		</div>
+		<p class="p-cards__detail-copyrights u-mt-22 u-mt-40-sp">© YASHICHIRO TAKAHASHI/NOIZI ITO/ASCII MEDIA WORKS/「Shakugan no Shana F」committee</p>
+		</div>
+	</div>
+</div>
+`
 
 	doc, err := goquery.NewDocumentFromReader(strings.NewReader(event))
 
 	if err != nil {
-		log.Fatal(err)
+		t.Fatal(err)
 	}
 
 	card := extractData(siteConfigs[EN], doc.Clone())
@@ -452,35 +617,78 @@ func TestExtractDataEvent_en(t *testing.T) {
 
 func TestExtractDataCX_en(t *testing.T) {
 	climax := `
-<th><a href="https://en.ws-tcg.com/cardlist/list/?cardno=SS/WE41-E59SHP"><img src="/wp/wp-content/images/cardimages/SS/WE41_E59SHP.png" alt="Direct Confrontation!"></a></th>
-<td>
-<h4>
-<a href="https://en.ws-tcg.com/cardlist/list/?cardno=SS/WE41-E59SHP" class=""><span class="highlight_target">Direct Confrontation!</span>(<span class="highlight_target">SS/WE41-E59SHP</span>)</a> - Shakugan no Shana<br>
-</h4>
-<span class="unit">
-[Side]: <img src="/wp/wp-content/images/partimages/w.gif">
-</span>
-<span class="unit">[Card Type]: Climax</span>
-<span class="unit">[Level]: -</span><br>
-<span class="unit">[Color]: <img src="../partimages/blue.gif"></span>
-<span class="unit">[Power]: -</span>
-<span class="unit">[Soul]: -</span>
-<span class="unit">[Cost]: -</span><br>
-<span class="unit">[Rarity]: SHP</span>
-<span class="unit">[Trigger]: <img src="../partimages/soul.gif"><img src="../partimages/gate.gif"></span>
-<span class="unit">[Special Attribute]: <span class="highlight_target">-・-</span></span><br>
-
-<span class="unit">[Flavor Text]: <span>Flow inside, O energy.</span></span><br>
-<br>
-<span class="highlight_target">【CONT】 All of your characters get +1000 power and +1 soul.<br>(<img src="../partimages/gate.gif">: When this card triggers, you may choose 1 climax in your waiting room, and return it to your hand)<br></span>
-
-
-</td>
-	`
+<div class="p-cards__detail-wrapper">
+	<div class="p-cards__detail-wrapper-inner">
+		<div class="image"><img src="/wp/wp-content/images/cardimages/SS/WE41_E59SHP.png" alt="Direct Confrontation!" decoding="async">
+		</div>
+		<div class="p-cards__detail-textarea">
+		<p class="number">SS/WE41-E59SHP</p>
+		<p class="ttl u-mt-14 u-mt-16-sp">Direct Confrontation!</p>
+		<div class="p-cards__detail-type u-mt-22 u-mt-40-sp">
+			<dl>
+			<dt>Expansion</dt>
+			<dd>[EX] Shakugan no Shana</dd>
+			</dl>
+			<dl>
+			<dt>Traits</dt>
+			<dd></dd>
+			</dl>
+			<dl>
+			<dt>Card Type</dt>
+			<dd>Climax</dd>
+			</dl>
+			<dl>
+			<dt>Rarity</dt>
+			<dd>SHP</dd>
+			</dl>
+			<dl>
+			<dt>Side</dt>
+			<dd>
+								<img src="/cardlist/partimages/w.gif" alt="" decoding="async">
+								</dd>
+			</dl>
+			<dl>
+			<dt>Color</dt>
+			<dd><img src="/wp/wp-content/images/partimages/blue.gif"></dd>
+			</dl>
+		</div>
+		<div class="p-cards__detail-status u-mt-22 u-mt-40-sp">
+			<dl>
+			<dt>Level</dt>
+			<dd>-</dd>
+			</dl>
+			<dl>
+			<dt>Cost</dt>
+			<dd>-</dd>
+			</dl>
+			<dl>
+			<dt>Power</dt>
+			<dd>-</dd>
+			</dl>
+			<dl>
+			<dt>Trigger</dt>
+			<dd><img src="/wp/wp-content/images/partimages/soul.gif"><img src="/wp/wp-content/images/partimages/gate.gif"></dd>
+			</dl>
+			<dl>
+			<dt>Soul</dt>
+			<dd>-</dd>
+			</dl>
+		</div>
+		<div class="p-cards__detail u-mt-22 u-mt-40-sp">
+			<p>【CONT】 All of your characters get +1000 power and +1 soul.<br>(<img src="/wp/wp-content/images/partimages/gate.gif">: When this card triggers, you may choose 1 climax in your waiting room, and return it to your hand)<br></p>
+		</div>
+		<div class="p-cards__detail-serif u-mt-22 u-mt-40-sp">
+			<p>Flow inside, O energy.</p>
+		</div>
+		<p class="p-cards__detail-copyrights u-mt-22 u-mt-40-sp">© YASHICHIRO TAKAHASHI/NOIZI ITO/ASCII MEDIA WORKS/「SHAKUGAN NO ShanaⅡ」COMMITTEE/MBS</p>
+		</div>
+	</div>
+</div>
+`
 
 	doc, err := goquery.NewDocumentFromReader(strings.NewReader(climax))
 	if err != nil {
-		log.Fatal(err)
+		t.Fatal(err)
 	}
 
 	card := extractData(siteConfigs[EN], doc.Clone())
@@ -514,7 +722,11 @@ func TestExtractDataCX_en(t *testing.T) {
 		t.Errorf("got %v: expected %v", card.Trigger, expectedTrigger)
 	}
 
-	if strings.Contains(card.Ability[1], "img") {
-		t.Errorf("got img tag in %v", card.Ability)
+	expectedAbility := []string{
+		"【CONT】 All of your characters get +1000 power and +1 soul.",
+		"([GATE]: When this card triggers, you may choose 1 climax in your waiting room, and return it to your hand)",
+	}
+	if !equalSlice(card.Ability, expectedAbility) {
+		t.Errorf("Incorrect ability. Got %v, want %v", card.Ability, expectedAbility)
 	}
 }

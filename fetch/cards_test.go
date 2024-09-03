@@ -25,8 +25,38 @@ import (
 // 	}
 // }
 
-func TestRecentSwitch(t *testing.T) {
-	expectedExpension := []string{
+func TestRecentSwitch_en(t *testing.T) {
+	expectedExpansion := []string{
+		"228",
+		"227",
+		"226",
+		"225",
+	}
+	f, err := os.Open("mockws-en/recent.html")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+
+	doc, err := goquery.NewDocumentFromReader(f)
+	if err != nil {
+		t.Fatal(err)
+	}
+	recentTasks := getTasksForRecentReleases(siteConfigs[EN], doc)
+	if len(recentTasks) != len(expectedExpansion) {
+		t.Errorf("Didn't get enough tasks. Got %d, want %d", len(recentTasks), len(expectedExpansion))
+	}
+
+	for _, task := range recentTasks {
+		expansion := task.urlValues.Get("expansion")
+		if !slices.Contains(expectedExpansion, expansion) {
+			t.Errorf("Did not expect %q expansion", expansion)
+		}
+	}
+}
+
+func TestRecentSwitch_jp(t *testing.T) {
+	expectedExpansion := []string{
 		"444",
 		"439",
 		"443",
@@ -46,15 +76,15 @@ func TestRecentSwitch(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	recentTasks := getTasksForRecentReleases(doc)
+	recentTasks := getTasksForRecentReleases(siteConfigs[JP], doc)
 	if len(recentTasks) != 8 {
 		t.Errorf("Should be equal to 8: %v", recentTasks)
 	}
 
 	for _, task := range recentTasks {
 		expansion := task.urlValues.Get("expansion")
-		if slices.Contains(expectedExpension, expansion) == false {
-			t.Errorf("Did not expect %v expansion", expansion)
+		if slices.Contains(expectedExpansion, expansion) == false {
+			t.Errorf("Did not expect %q expansion", expansion)
 		}
 	}
 }

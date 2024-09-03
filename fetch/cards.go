@@ -21,6 +21,7 @@ import (
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -41,33 +42,153 @@ const (
 )
 
 type siteConfig struct {
-	baseURL                  string
-	cardListURL              string
-	cardSearchURL            string
-	languageCode             string
-	nextButtonDistinguisher  string
-	resultTableDistinguisher string
-	supportRecentRelease     bool
+	baseURL                    string
+	cardListURL                string
+	cardSearchURL              string
+	languageCode               string
+	lastPageFunc               func(doc *goquery.Document) int
+	pageScanParseFunc          func(task *scrapeTask, wgCardSel *sync.WaitGroup, cardSelCh chan<- *goquery.Selection, resp *http.Response)
+	recentReleaseDistinguisher string
+	recentRelaseExpansionFunc  func(page *goquery.Selection) *url.Values
+	supportTitleNumber         bool
 }
 
 var siteConfigs = map[SiteLanguage]siteConfig{
 	EN: {
-		baseURL:                  "https://en.ws-tcg.com/",
-		cardListURL:              "https://en.ws-tcg.com/cardlist/list/",
-		cardSearchURL:            "https://en.ws-tcg.com/cardlist/cardsearch/exec",
-		languageCode:             "EN",
-		nextButtonDistinguisher:  "[rel=\"next\"]",
-		resultTableDistinguisher: "#searchResult-table tr",
-		supportRecentRelease:     false,
+		baseURL:       "https://en.ws-tcg.com/",
+		cardListURL:   "https://en.ws-tcg.com/cardlist/list/",
+		cardSearchURL: "https://en.ws-tcg.com/cardlist/searchresults/",
+		languageCode:  "EN",
+		lastPageFunc: func(doc *goquery.Document) int {
+			numCardsS := doc.Find(".c-search__results-item span").First().Text()
+			numCards, err := strconv.Atoi(numCardsS)
+			if err != nil {
+				log.Fatalf("Couldn't get num cards: %v\n", err)
+				return 1
+			}
+			// As of 2024-9-3, there are 15 cards per "page".
+			// TODO: figure out a better way to get the total number of pages
+			return (numCards-1)/15 + 1
+		},
+		pageScanParseFunc: func(task *scrapeTask, wgCardSel *sync.WaitGroup, cardSelCh chan<- *goquery.Selection, resp *http.Response) {
+			doc, err := goquery.NewDocumentFromReader(resp.Body)
+			if err != nil {
+				task.pageURLCh <- resp.Request.URL.String()
+				log.Println("goquery error: ", err, "for page: ", resp.Request.URL)
+				return
+			}
+			resultList := doc.Find(".p_cards__results-box ul li")
+
+			if resultList.Length() == 0 && resp.StatusCode == http.StatusOK {
+				log.Println("No cards on response page")
+			} else {
+				log.Println("Found cards !!", resp.Request.URL)
+				resultList.Each(func(i int, s *goquery.Selection) {
+					subPath, exists := s.Find("a").First().Attr("href")
+					if !exists {
+						log.Printf("Error getting sub path: %v\n", err)
+						return
+					}
+					fullPath, err := url.JoinPath(task.siteConfig.baseURL, subPath)
+					if err != nil {
+						log.Printf("Error getting full path: %v\n", err)
+						return
+					}
+					fullPath, _ = url.QueryUnescape(fullPath)
+
+					proxy := biri.GetClient()
+					log.Println("Got proxy")
+					proxy.Client.Jar = task.cookieJar
+					detailedPageResp, err := proxy.Client.Get(fullPath)
+					if err != nil || detailedPageResp.StatusCode != http.StatusOK {
+						log.Printf("Failed to get detailed page: %v\n", err)
+					} else {
+						proxy.Readd()
+						doc, err := goquery.NewDocumentFromReader(detailedPageResp.Body)
+						if err != nil {
+							task.pageURLCh <- detailedPageResp.Request.URL.String()
+							log.Println("goquery error: ", err, "for page: ", detailedPageResp.Request.URL)
+							return
+						}
+						cardDetails := doc.Find(".p-cards__detail-wrapper")
+						wgCardSel.Add(1)
+						cardSelCh <- cardDetails
+					}
+				})
+			}
+		},
+		recentReleaseDistinguisher: "div.p-cards__latest-products ul.c-product__list a",
+		recentRelaseExpansionFunc: func(sel *goquery.Selection) *url.Values {
+			if hrefAttr, exists := sel.Attr("href"); exists {
+				re := regexp.MustCompile(`expansion=(\d+)`)
+				if m := re.FindStringSubmatch(hrefAttr); m != nil {
+					return &url.Values{
+						"cmd":             {"search"},
+						"show_page_count": {"100"},
+						"show_small":      {"0"},
+						"parallel":        {"0"},
+						"expansion":       {m[1]},
+					}
+				}
+			}
+			return nil
+		},
+		supportTitleNumber: true,
 	},
 	JP: {
-		baseURL:                  "https://ws-tcg.com/",
-		cardListURL:              "https://ws-tcg.com/cardlist/",
-		cardSearchURL:            "https://ws-tcg.com/cardlist/search",
-		languageCode:             "JP",
-		nextButtonDistinguisher:  ".pager .next",
-		resultTableDistinguisher: ".search-result-table tr",
-		supportRecentRelease:     true,
+		baseURL:       "https://ws-tcg.com/",
+		cardListURL:   "https://ws-tcg.com/cardlist/",
+		cardSearchURL: "https://ws-tcg.com/cardlist/search",
+		languageCode:  "JP",
+		lastPageFunc: func(doc *goquery.Document) int {
+			all := doc.Find(".pager .next")
+
+			last, _ := strconv.Atoi(all.Prev().First().Text())
+			// default is 1, there no .pager .next if it's the only page
+			if last == 0 {
+				last = 1
+			}
+			return last
+		},
+		pageScanParseFunc: func(task *scrapeTask, wgCardSel *sync.WaitGroup, cardSelCh chan<- *goquery.Selection, resp *http.Response) {
+			doc, err := goquery.NewDocumentFromReader(resp.Body)
+			if err != nil {
+				task.pageURLCh <- resp.Request.URL.String()
+				log.Println("goquery error: ", err, "for page: ", resp.Request.URL)
+				return
+			}
+			resultTable := doc.Find(".search-result-table tr")
+
+			if resultTable.Length() == 0 && resp.StatusCode == http.StatusOK {
+				log.Println("No cards on response page")
+			} else {
+				log.Println("Found cards !!", resp.Request.URL)
+				resultTable.Each(func(i int, s *goquery.Selection) {
+					wgCardSel.Add(1)
+					cardSelCh <- s
+				})
+			}
+		},
+		recentReleaseDistinguisher: "div.system > ul.expansion-list a[onclick]",
+		recentRelaseExpansionFunc: func(sel *goquery.Selection) *url.Values {
+			onclickAttr, exists := sel.Attr("onclick")
+			if exists {
+				// Extract the integer value from the onclick attribute
+				parts := strings.Split(onclickAttr, "('")
+				if len(parts) >= 2 {
+					value := strings.TrimSuffix(parts[1], "')")
+					return &url.Values{
+						"cmd":             {"search"},
+						"show_page_count": {"100"},
+						"show_small":      {"0"},
+						"parallel":        {"0"},
+						"expansion":       {value},
+					}
+				}
+			}
+			return nil
+		},
+		supportTitleNumber: false,
 	},
 }
 
@@ -97,37 +218,21 @@ func (s *scrapeTask) getLastPage() int {
 	if err != nil {
 		log.Fatalf("Error on getting last page parse: %v\n", err)
 	}
-	all := doc.Find(s.siteConfig.nextButtonDistinguisher)
 
-	last, _ := strconv.Atoi(all.Prev().First().Text())
-	// default is 1, there no .pager .next if it's the only page
-	if last == 0 {
-		last = 1
-	}
+	last := s.siteConfig.lastPageFunc(doc)
+
 	log.Println("Last page is", last, " for :", s.urlValues)
 	s.lastPage = last
 	return last
 }
 
-func getTasksForRecentReleases(doc *goquery.Document) []scrapeTask {
+func getTasksForRecentReleases(siteCfg siteConfig, doc *goquery.Document) []scrapeTask {
 	var tasks []scrapeTask
 	// Find all <a> elements with onclick attributes within the <ul> element
-	doc.Find("div.system > ul.expansion-list a[onclick]").Each(func(i int, sel *goquery.Selection) {
-		onclickAttr, exists := sel.Attr("onclick")
-		if exists {
-			// Extract the integer value from the onclick attribute
-			parts := strings.Split(onclickAttr, "('")
-			if len(parts) >= 2 {
-				value := strings.TrimSuffix(parts[1], "')")
-				urlValues := url.Values{
-					"cmd":             {"search"},
-					"show_page_count": {"100"},
-					"show_small":      {"0"},
-					"parallel":        {"0"},
-					"expansion":       {value},
-				}
-				tasks = append(tasks, scrapeTask{urlValues: urlValues})
-			}
+	doc.Find(siteCfg.recentReleaseDistinguisher).Each(func(i int, sel *goquery.Selection) {
+		if v := siteCfg.recentRelaseExpansionFunc(sel); v != nil {
+
+			tasks = append(tasks, scrapeTask{urlValues: *v})
 		}
 	})
 	return tasks
@@ -162,30 +267,14 @@ func pageScanWorker(
 ) {
 	for resp := range task.pageRespCh {
 		log.Printf("Start page: %v", resp.Request.URL)
-		doc, err := goquery.NewDocumentFromReader(resp.Body)
-		if err != nil {
-			task.pageURLCh <- resp.Request.URL.String()
-			log.Println("goquery error: ", err, "for page: ", resp.Request.URL)
-			continue
-		}
-		resultTable := doc.Find(task.siteConfig.resultTableDistinguisher)
-
-		if resultTable.Length() == 0 && resp.StatusCode == http.StatusOK {
-			log.Println("No cards on response page")
-		} else {
-			log.Println("Found cards !!", resp.Request.URL)
-			resultTable.Each(func(i int, s *goquery.Selection) {
-				wgCardSel.Add(1)
-				cardSelCh <- s
-			})
-		}
+		task.siteConfig.pageScanParseFunc(task, wgCardSel, cardSelCh, resp)
 		task.wgPageScan.Done()
 		log.Printf("Finish page: %v", resp.Request.URL)
 	}
 	log.Println("Page scan worker", id, "done")
 }
 
-func extractWorker(siteCfg siteConfig, wgCardSel *sync.WaitGroup, cardSelChan chan *goquery.Selection, cardCh chan<- Card) {
+func extractWorker(siteCfg siteConfig, wgCardSel *sync.WaitGroup, cardSelChan <-chan *goquery.Selection, cardCh chan<- Card) {
 	for s := range cardSelChan {
 		c := extractData(siteCfg, s)
 		cardCh <- c
@@ -235,8 +324,10 @@ func prepareBiri(cfg siteConfig) {
 }
 
 type Config struct {
-	// The website's internal code for each set. The value is language-specific.
-	// For example, 1 is for "D.C. D.C.II" in JP, but is for "Puella Magi Madoka Magica" in EN.
+	// The website's internal code for each expansion. The value is language-specific.
+	// For example,
+	//   159 is "BanG Dream! Girls Band Party Premium Booster" in EN
+	//   159 is "Monogatari Series: Second Season"
 	ExpansionNumber int
 	GetAllRarities  bool
 	GetRecent       bool
@@ -244,6 +335,11 @@ type Config struct {
 	PageStart       int
 	Reverse         bool
 	SetCode         []string
+	// The website's internal code for each set. The value is language-specific.
+	// For example
+	//   159 is "Tokyo Revengers" in EN
+	//   159 isn't supported in JP
+	TitleNumber int
 }
 
 func CardsStream(cfg Config, cardCh chan<- Card) error {
@@ -273,7 +369,22 @@ func CardsStream(cfg Config, cardCh chan<- Card) error {
 		"show_small":      {"0"},
 	}
 	if cfg.ExpansionNumber != 0 {
-		urlValues.Add("expansion", strconv.Itoa(cfg.ExpansionNumber))
+		switch cfg.Language {
+		case EN:
+			// "expansion" also works, but the website uses "expansion_name", so use "expansion" to
+			// stay in line with the website
+			urlValues.Add("expansion_name", strconv.Itoa(cfg.ExpansionNumber))
+		case JP:
+			urlValues.Add("expansion", strconv.Itoa(cfg.ExpansionNumber))
+		}
+	}
+	if cfg.TitleNumber != 0 {
+		if !siteCfg.supportTitleNumber {
+			err := fmt.Errorf("can't use title number on %s site", cfg.Language)
+			log.Fatalln(err)
+			return err
+		}
+		urlValues.Add("title", strconv.Itoa(cfg.TitleNumber))
 	}
 	if cfg.GetAllRarities {
 		urlValues.Add("parallel", "0")
@@ -284,10 +395,7 @@ func CardsStream(cfg Config, cardCh chan<- Card) error {
 		switch cfg.Language {
 		case EN:
 			urlValues.Add("keyword_or", strings.Join(cfg.SetCode, " "))
-			urlValues.Add("keyword_cardname", "0")
-			urlValues.Add("keyword_feature", "0")
-			urlValues.Add("keyword_text", "0")
-			urlValues.Add("keyword_cardnumber", "1")
+			urlValues.Add("keyword_type[]", "no")
 		case JP:
 			urlValues.Add("title_number", fmt.Sprintf("##%s##", strings.Join(cfg.SetCode, "##")))
 		}
@@ -300,11 +408,6 @@ func CardsStream(cfg Config, cardCh chan<- Card) error {
 		urlValues:  urlValues,
 	}
 	if cfg.GetRecent {
-		if !siteCfg.supportRecentRelease {
-			err := fmt.Errorf("can't get recent releases for %s site", cfg.Language)
-			log.Fatalln(err)
-			return err
-		}
 		resp, err := http.Get(siteCfg.cardListURL)
 		if err != nil {
 			log.Fatal("Error on get recent")
@@ -313,7 +416,7 @@ func CardsStream(cfg Config, cardCh chan<- Card) error {
 		if err != nil {
 			log.Fatal("Error on parse recent")
 		}
-		for _, recent := range getTasksForRecentReleases(doc) {
+		for _, recent := range getTasksForRecentReleases(siteCfg, doc) {
 			copyTask := defaultScrapeTask
 			copyTask.urlValues = recent.urlValues
 			log.Println(defaultScrapeTask, recent)
