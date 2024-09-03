@@ -103,8 +103,6 @@ func processInt(st string) string {
 
 // extractData extract data to card
 func extractData(config siteConfig, mainHTML *goquery.Selection) Card {
-	var imgPlaceHolder string
-	var ability []string
 	titleSpan := mainHTML.Find("h4 span").Last().Text()
 	defer func() {
 		if err := recover(); err != nil {
@@ -123,17 +121,10 @@ func extractData(config siteConfig, mainHTML *goquery.Selection) Card {
 	}
 	setName := strings.TrimSpace(strings.Split(mainHTML.Find("h4").Text(), ") -")[1])
 	imageCardURL, _ := mainHTML.Find("a img").Attr("src")
-	abilityNode, _ := mainHTML.Find("span").Last().Html()
-	imgURL, has := mainHTML.Find("span").Last().Find("img").Attr("src")
 
-	if has {
-		_, _imgPlaceHolder := path.Split(imgURL)
-		_imgPlaceHolder = strings.Split(_imgPlaceHolder, ".")[0]
-		imgPlaceHolder = fmt.Sprintf("[%v]", triggersMap[_imgPlaceHolder])
-	}
-
-	for _, line := range strings.Split(abilityNode, "<br/>") {
-		ability = append(ability, imgRE.ReplaceAllString(line, imgPlaceHolder))
+	ability, err := extractAbilities(mainHTML.Find("span").Last())
+	if err != nil {
+		log.Printf("Failed to get ability node: %v\n", err)
 	}
 
 	infos := make(map[string]string)
@@ -244,6 +235,31 @@ func extractData(config siteConfig, mainHTML *goquery.Selection) Card {
 		card.ID = setInfo[1]
 	}
 	return card
+}
+
+func extractAbilities(abilityNode *goquery.Selection) ([]string, error) {
+	var ability []string
+	abilityNode.Find("img").Each(func(i int, s *goquery.Selection) {
+		url, has := s.Attr("src")
+		if has {
+			_, _imgPlaceHolder := path.Split(url)
+			_imgPlaceHolder = strings.Split(_imgPlaceHolder, ".")[0]
+			t := fmt.Sprintf("[%v]", triggersMap[_imgPlaceHolder])
+			s.ReplaceWithHtml(t)
+		}
+	})
+	abilityNodeHtml, err := abilityNode.Html()
+	if err != nil {
+		err = fmt.Errorf("failed to get ability node: %v", err)
+	}
+	for _, line := range strings.Split(abilityNodeHtml, "<br/>") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		ability = append(ability, line)
+	}
+	return ability, err
 }
 
 // IsbaseRarity check if a card is a C / U / R / RR

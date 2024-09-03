@@ -23,6 +23,72 @@ func equalSlice(sliceA []string, sliceB []string) bool {
 	return true
 }
 
+func assertCardEquals(t *testing.T, got, want Card) {
+	if got.Set != want.Set {
+		t.Errorf("Incorrect Set: got %q, want %q", got.Set, want.Set)
+	}
+	if got.SetName != want.SetName {
+		t.Errorf("Incorrect SetName: got %q, want %q", got.SetName, want.SetName)
+	}
+	if got.Side != want.Side {
+		t.Errorf("Incorrect Side: got %q, want %q", got.Side, want.Side)
+	}
+	if got.Release != want.Release {
+		t.Errorf("Incorrect Release: got %q, want %q", got.Release, want.Release)
+	}
+	if got.ID != want.ID {
+		t.Errorf("Incorrect ID: got %q, want %q", got.ID, want.ID)
+	}
+	if got.Name != want.Name {
+		t.Errorf("Incorrect Name: got %q, want %q", got.Name, want.Name)
+	}
+	if got.Language != want.Language {
+		t.Errorf("Incorrect Language: got %q, want %q", got.Language, want.Language)
+	}
+	if got.CardType != want.CardType {
+		t.Errorf("Incorrect CardType: got %q, want %q", got.CardType, want.CardType)
+	}
+	if got.Colour != want.Colour {
+		t.Errorf("Incorrect Colour: got %q, want %q", got.Colour, want.Colour)
+	}
+	if got.Level != want.Level {
+		t.Errorf("Incorrect Level: got %q, want %q", got.Level, want.Level)
+	}
+	if got.Cost != want.Cost {
+		t.Errorf("Incorrect Cost: got %q, want %q", got.Cost, want.Cost)
+	}
+	if got.Power != want.Power {
+		t.Errorf("Incorrect Power: got %q, want %q", got.Power, want.Power)
+	}
+	if got.Soul != want.Soul {
+		t.Errorf("Incorrect Soul: got %q, want %q", got.Soul, want.Soul)
+	}
+	if got.Rarity != want.Rarity {
+		t.Errorf("Incorrect Rarity: got %q, want %q", got.Rarity, want.Rarity)
+	}
+	if got.FlavourText != want.FlavourText {
+		t.Errorf("Incorrect FlavourText: got %q, want %q", got.FlavourText, want.FlavourText)
+	}
+	if !equalSlice(got.Trigger, want.Trigger) {
+		t.Errorf("Incorrect Trigger: got %v, want %v", got.Trigger, want.Trigger)
+	}
+	if !equalSlice(got.Ability, want.Ability) {
+		t.Errorf("Incorrect Ability: got\n %v,\nwant\n %v", got.Ability, want.Ability)
+	}
+	if !equalSlice(got.SpecialAttrib, want.SpecialAttrib) {
+		t.Errorf("Incorrect SpecialAttrib: got %v, want %v", got.SpecialAttrib, want.SpecialAttrib)
+	}
+	if got.Version != want.Version {
+		t.Errorf("Incorrect Version: got %q, want %q", got.Version, want.Version)
+	}
+	if got.ImageURL != want.ImageURL {
+		t.Errorf("Incorrect ImageURL: got %q, want %q", got.ImageURL, want.ImageURL)
+	}
+	if got.Cardcode != want.Cardcode {
+		t.Errorf("Incorrect Cardcode: got %q, want %q", got.Cardcode, want.Cardcode)
+	}
+}
+
 func TestExtractData_jp(t *testing.T) {
 	chara := `
 	<th><a href="/cardlist/?cardno=BD/W63-036SPMa&amp;l"><img src="https://s3-ap-northeast-1.amazonaws.com/static.ws-tcg.com/wordpress/wp-content/cardimages/b/bd_w63/bd_w63_036spma.gif" alt="“私達、参上っ！”上原ひまり"/></a></th>
@@ -172,25 +238,27 @@ func TestExtractDataEvent_jp(t *testing.T) {
 
 func TestExtractDataCX_jp(t *testing.T) {
 	chara := `
-	<th><a href="/cardlist/?cardno=BD/W63-025&amp;l"><img src="https://s3-ap-northeast-1.amazonaws.com/static.ws-tcg.com/wordpress/wp-content/cardimages/b/bd_w63/bd_w63_025.gif" alt="キラキラのお日様"></a></th>
+<tr>
+	<th><a href="/cardlist/?cardno=BD/W63-025&amp;l"><img src="/wordpress/wp-content/images/cardlist/b/bd_w63/bd_w63_025.png" alt="キラキラのお日様"></a></th>
 	<td>
 	<h4><a href="/cardlist/?cardno=BD/W63-025&amp;l"><span class="highlight_target">
 	キラキラのお日様</span>(<span class="highlight_target">BD/W63-025</span>)</a> -「バンドリ！ ガールズバンドパーティ！」Vol.2<br></h4>
 	<span class="unit">
-	サイド：<img src="https://s3-ap-northeast-1.amazonaws.com/static.ws-tcg.com/wordpress/wp-content/cardimages/_partimages/w.gif"></span>
+	サイド：<img src="/wordpress/wp-content/images/cardlist/_partimages/w.gif"></span>
 	<span class="unit">種類：クライマックス</span>
 	<span class="unit">レベル：-</span><br>
-	<span class="unit">色：<img src="https://s3-ap-northeast-1.amazonaws.com/static.ws-tcg.com/wordpress/wp-content/cardimages/_partimages/yellow.gif"></span>
+	<span class="unit">色：<img src="/wordpress/wp-content/images/cardlist/_partimages/yellow.gif"></span>
 	<span class="unit">パワー：-</span>
 	<span class="unit">ソウル：-</span>
 	<span class="unit">コスト：-</span><br>
 	<span class="unit">レアリティ：CR</span>
-	<span class="unit">トリガー：<img src="https://s3-ap-northeast-1.amazonaws.com/static.ws-tcg.com/wordpress/wp-content/cardimages/_partimages/soul.gif"><img src="https://s3-ap-northeast-1.amazonaws.com/static.ws-tcg.com/wordpress/wp-content/cardimages/_partimages/bounce.gif"></span>
-	<span class="unit">特徴：<span class="highlight_target">-・-</span></span><br>
+	<span class="unit">トリガー：<img src="/wordpress/wp-content/images/cardlist/_partimages/soul.gif"><img src="/wordpress/wp-content/images/cardlist/_partimages/bounce.gif"></span>
+	<span class="unit">特徴：<span class="highlight_target">-</span></span><br>
 	<span class="unit">フレーバー：楽しい気持ちは誰かといると生まれるものってこと！</span><br>
 	<br>
-	<span class="highlight_target">【永】 あなたのキャラすべてに、パワーを＋1000し、ソウルを＋1。<br>（<img src="https://s3-ap-northeast-1.amazonaws.com/static.ws-tcg.com/wordpress/wp-content/cardimages/_partimages/bounce.gif">：このカードがトリガーした時、あなたは相手のキャラを1枚選び、手札に戻してよい）</span>
+	<span class="highlight_target">【永】 あなたのキャラすべてに、パワーを＋1000し、ソウルを＋1。<br>（<img src="/wordpress/wp-content/images/cardlist/_partimages/bounce.gif">：このカードがトリガーした時、あなたは相手のキャラを1枚選び、手札に戻してよい）</span>
 	</td>
+</tr>
 	`
 
 	doc, err := goquery.NewDocumentFromReader(strings.NewReader(chara))
@@ -200,29 +268,31 @@ func TestExtractDataCX_jp(t *testing.T) {
 
 	card := extractData(siteConfigs[JP], doc.Clone())
 
-	if card.CardType != "CX" {
-		t.Errorf("got %v: expected CX", card.CardType)
+	expectedCard := Card{
+		Name:        "キラキラのお日様",
+		Set:         "BD",
+		SetName:     "「バンドリ！ ガールズバンドパーティ！」Vol.2",
+		Side:        "W",
+		Release:     "W63",
+		ID:          "025",
+		Colour:      "YELLOW",
+		CardType:    "CX",
+		Cardcode:    "BD/W63-025",
+		Soul:        "0",
+		Level:       "0",
+		Cost:        "0",
+		FlavourText: "楽しい気持ちは誰かといると生まれるものってこと！",
+		Power:       "0",
+		Rarity:      "CR",
+		ImageURL:    "https://ws-tcg.com/wordpress/wp-content/images/cardlist/b/bd_w63/bd_w63_025.png",
+		Version:     CardModelVersion,
+		Trigger:     []string{"SOUL", "RETURN"},
+		Ability: []string{
+			"【永】 あなたのキャラすべてに、パワーを＋1000し、ソウルを＋1。",
+			"（[RETURN]：このカードがトリガーした時、あなたは相手のキャラを1枚選び、手札に戻してよい）",
+		},
 	}
-
-	if card.Name != "キラキラのお日様" {
-		t.Errorf("got %v: expected キラキラのお日様", card.Name)
-	}
-
-	if card.Soul != "0" {
-		t.Errorf("got %v: expected ''", card.Soul)
-	}
-
-	if card.Level != "0" {
-		t.Errorf("got %v: expected 0", card.Level)
-	}
-
-	if card.Cost != "0" {
-		t.Errorf("got %v: expected 0", card.Cost)
-	}
-
-	if strings.Contains(card.Ability[1], "img") {
-		t.Errorf("got img tag in %v", card.Ability)
-	}
+	assertCardEquals(t, card, expectedCard)
 }
 
 func TestExtractData_en(t *testing.T) {
