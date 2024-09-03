@@ -119,9 +119,9 @@ var triggersMap = map[string]string{
 	"choice":   "CHOICE",
 }
 
-func processInt(st string) string {
+func filterDash(st string) string {
 	if strings.Contains(st, "-") {
-		st = "0"
+		return ""
 	}
 	return st
 }
@@ -242,12 +242,11 @@ func extractDataEn(config siteConfig, mainHTML *goquery.Selection) Card {
 		Language:      "EN",
 		Type:          info["type"],
 		Name:          cardName,
-		Level:         processInt(info["level"]),
-		Cost:          processInt(info["cost"]),
+		Level:         filterDash(info["level"]),
+		Cost:          filterDash(info["cost"]),
 		FlavorText:    info["flavourText"],
 		Color:         info["color"],
-		Power:         processInt(info["power"]),
-		Soul:          info["soul"],
+		Power:         filterDash(info["power"]),
 		Rarity:        info["rarity"],
 		Abilities:     ability,
 		Version:       CardModelVersion,
@@ -267,6 +266,9 @@ func extractDataEn(config siteConfig, mainHTML *goquery.Selection) Card {
 	if len(setInfo) > 1 {
 		card.Release = setInfo[0]
 		card.ID = setInfo[1]
+	}
+	if card.Type == "CH" {
+		card.Soul = info["soul"]
 	}
 	return card
 }
@@ -378,12 +380,11 @@ func extractDataJp(config siteConfig, mainHTML *goquery.Selection) Card {
 		Language:   "JP",
 		Type:       infos["type"],
 		Name:       strings.TrimSpace(mainHTML.Find("h4 span").First().Text()),
-		Level:      processInt(infos["level"]),
+		Level:      filterDash(infos["level"]),
 		FlavorText: infos["flavourText"],
 		Color:      infos["color"],
-		Power:      processInt(infos["power"]),
-		Soul:       infos["soul"],
-		Cost:       processInt(infos["cost"]),
+		Power:      filterDash(infos["power"]),
+		Cost:       filterDash(infos["cost"]),
 		Rarity:     infos["rarity"],
 		Abilities:  ability,
 		Version:    CardModelVersion,
@@ -403,6 +404,9 @@ func extractDataJp(config siteConfig, mainHTML *goquery.Selection) Card {
 	if len(setInfo) > 1 {
 		card.Release = setInfo[0]
 		card.ID = setInfo[1]
+	}
+	if card.Type == "CH" {
+		card.Soul = infos["soul"]
 	}
 	return card
 }

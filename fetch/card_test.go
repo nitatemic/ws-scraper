@@ -227,12 +227,12 @@ func TestExtractDataEvent_jp(t *testing.T) {
 		t.Errorf("got %v: expected empty", card.Traits)
 	}
 
-	if card.Soul != "0" {
+	if card.Soul != "" {
 		t.Errorf("got %v: expected ''", card.Soul)
 	}
 
-	if card.Power != "0" {
-		t.Errorf("got %v: expected 0", card.Power)
+	if card.Power != "" {
+		t.Errorf("got %v: expected ''", card.Power)
 	}
 }
 
@@ -279,11 +279,11 @@ func TestExtractDataCX_jp(t *testing.T) {
 		Color:      "YELLOW",
 		Language:   "JP",
 		Type:       "CX",
-		Soul:       "0",
-		Level:      "0",
-		Cost:       "0",
+		Soul:       "",
+		Level:      "",
+		Cost:       "",
 		FlavorText: "楽しい気持ちは誰かといると生まれるものってこと！",
-		Power:      "0",
+		Power:      "",
 		Rarity:     "CR",
 		ImageURL:   "https://ws-tcg.com/wordpress/wp-content/images/cardlist/b/bd_w63/bd_w63_025.png",
 		Version:    CardModelVersion,
@@ -611,12 +611,12 @@ func TestExtractDataEvent_en(t *testing.T) {
 		t.Errorf("got %v: expected YELLOW", card.Color)
 	}
 
-	if card.Soul != "0" {
+	if card.Soul != "" {
 		t.Errorf("got %v: expected ''", card.Soul)
 	}
 
-	if card.Power != "0" {
-		t.Errorf("got %v: expected 0", card.Power)
+	if card.Power != "" {
+		t.Errorf("got %v: expected ''", card.Power)
 	}
 }
 
@@ -710,16 +710,16 @@ func TestExtractDataCX_en(t *testing.T) {
 		t.Errorf("got %v: expected BLUE", card.Color)
 	}
 
-	if card.Soul != "0" {
+	if card.Soul != "" {
 		t.Errorf("got %v: expected ''", card.Soul)
 	}
 
-	if card.Level != "0" {
-		t.Errorf("got %v: expected 0", card.Level)
+	if card.Level != "" {
+		t.Errorf("got %v: expected ''", card.Level)
 	}
 
-	if card.Cost != "0" {
-		t.Errorf("got %v: expected 0", card.Cost)
+	if card.Cost != "" {
+		t.Errorf("got %v: expected ''", card.Cost)
 	}
 
 	expectedTrigger := []string{"SOUL", "GATE"}
