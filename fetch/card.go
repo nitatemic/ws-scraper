@@ -28,33 +28,60 @@ import (
 
 // Card info to export
 type Card struct {
-	Set           string   `json:"set"`
-	SetName       string   `json:"setName"`
-	ExpansionName string   `json:"expansionName"`
-	Side          string   `json:"side"`
-	Release       string   `json:"release"`
-	ID            string   `json:"id"`
-	Name          string   `json:"name"`
-	Language      string   `json:"language"`
-	CardType      string   `json:"cardType"`
-	Colour        string   `json:"colour"`
-	Level         string   `json:"level"`
-	Cost          string   `json:"cost"`
-	Power         string   `json:"power"`
-	Soul          string   `json:"soul"`
-	Rarity        string   `json:"rarity"`
-	FlavourText   string   `json:"flavourText"`
-	Trigger       []string `json:"trigger"`
-	Ability       []string `json:"ability"`
-	SpecialAttrib []string `json:"specialAttrib"`
-	Version       string   `json:"version"`
-	Cardcode      string   `json:"cardcode"`
-	ImageURL      string   `json:"imageURL"`
-	Tags          []string `json:"tags"`
+	// CardNumber is the full card number/code used to identify each card.
+	// It typically consists of the SetID, Side, Release, ReleasePackID, and ID,
+	// though the format is different in some situations.
+	CardNumber string `json:"cardNumber"`
+	// SetID is the alphanumeric string found at the beginning of card numbers,
+	// before the "/"".
+	SetID string `json:"setId"`
+	// SetName is the official name of the set.
+	SetName       string `json:"setName"`
+	ExpansionName string `json:"expansionName"`
+	// Side is either "W" for Weiss, or "S" for Schwarz.
+	Side string `json:"side"`
+	// Release typically consists of the card's side, followed by a number
+	// (the release pack ID) indicating which consecutive release for the relative
+	// side the release is.
+	// For example, "W64" would mean the 64th set of the Weiss side.
+	// There are certain situations that don't follow the aforementioned format,
+	// such as with promo cards (eg. BSF2024) or special sets (eg. EN-W03).
+	Release string `json:"release"`
+	// ReleasePackID indicates which consecutive release for the relative
+	// side the release is.
+	// For example, "W64" would mean the 64th set of the Weiss side.
+	// For cards with non-standard release codes, a best-effort/most sensible
+	// ID is chosen (eg. 2021 from BSL2021). This may be empty if there's
+	// no sensible ID to choose (eg. from TCPR-P01).
+	ReleasePackID string `json:"releasePackId"`
+	// ID of the card within the set+release. This is usually the last part
+	// of the card number (after the -).
+	ID string `json:"id"`
+	// Language the card is printed in.
+	Language string `json:"language"`
+
+	// Type can be either "CH" for character, "EV" for event, or "CX" for climax.
+	Type string `json:"type"`
+
+	// Name of the card.
+	Name       string   `json:"name"`
+	Color      string   `json:"color"`
+	Level      string   `json:"level"`
+	Cost       string   `json:"cost"`
+	Power      string   `json:"power"`
+	Soul       string   `json:"soul"`
+	Rarity     string   `json:"rarity"`
+	FlavorText string   `json:"flavorText"`
+	Triggers   []string `json:"triggers"`
+	Abilities  []string `json:"abilities"`
+	Traits     []string `json:"traits"`
+	ImageURL   string   `json:"imageURL"`
+
+	Version string `json:"version"`
 }
 
 // CardModelVersion : Card format version
-const CardModelVersion = "4"
+const CardModelVersion = "1"
 
 var suffix = []string{
 	"SP",
@@ -114,23 +141,23 @@ func extractData(config siteConfig, mainHTML *goquery.Selection) Card {
 
 func extractDataEn(config siteConfig, mainHTML *goquery.Selection) Card {
 	txtArea := mainHTML.Find(".p-cards__detail-textarea").Last()
-	cardCode := txtArea.Find(".number").First().Last().Text()
+	cardNumber := txtArea.Find(".number").First().Last().Text()
 	defer func() {
 		if err := recover(); err != nil {
-			log.Printf("Panic for %v. Error=%v", cardCode, err)
+			log.Printf("Panic for %v. Error=%v", cardNumber, err)
 		}
 	}()
 
-	log.Println("Start card:", cardCode)
+	log.Println("Start card:", cardNumber)
 
 	var set string
 	var setInfo []string
-	if strings.Contains(cardCode, "/") {
-		set = strings.Split(cardCode, "/")[0]
-		setInfo = strings.Split(strings.Split(cardCode, "/")[1], "-")
+	if strings.Contains(cardNumber, "/") {
+		set = strings.Split(cardNumber, "/")[0]
+		setInfo = strings.Split(strings.Split(cardNumber, "/")[1], "-")
 	} else {
 		// TODO: deal with "BSF2024-03 PR" and similar cards
-		log.Println("Can't get set info from:", cardCode)
+		log.Println("Can't get set info from:", cardNumber)
 	}
 
 	cardName := mainHTML.Find(".ttl").Last().Text()
@@ -156,7 +183,7 @@ func extractDataEn(config siteConfig, mainHTML *goquery.Selection) Card {
 				_, colorName := path.Split(u)
 				info["color"] = strings.ToUpper(strings.Split(colorName, ".")[0])
 			} else {
-				log.Printf("Failed to get color for %q\n", cardCode)
+				log.Printf("Failed to get color for %q\n", cardNumber)
 			}
 		case "Cost":
 			info["cost"] = ddText
@@ -173,7 +200,7 @@ func extractDataEn(config siteConfig, mainHTML *goquery.Selection) Card {
 				_, side := path.Split(u)
 				info["side"] = strings.ToUpper(strings.Split(side, ".")[0])
 			} else {
-				log.Printf("Failed to get side for %q\n", cardCode)
+				log.Printf("Failed to get side for %q\n", cardNumber)
 			}
 		case "Soul":
 			info["soul"] = strconv.Itoa(dd.Children().Length())
@@ -206,23 +233,24 @@ func extractDataEn(config siteConfig, mainHTML *goquery.Selection) Card {
 	}
 
 	card := Card{
-		Name:          cardName,
-		Set:           set,
+		CardNumber: cardNumber,
+		SetID:      set,
 		// TODO: Figure out how to get EN set name. It's no longer on the card details page
 		// SetName:     setName,
 		ExpansionName: info["expansion"],
-		Side:        info["side"],
-		CardType:    info["type"],
-		Cardcode:    cardCode,
-		Level:       processInt(info["level"]),
-		Cost:        processInt(info["cost"]),
-		FlavourText: info["flavourText"],
-		Colour:      info["color"],
-		Power:       processInt(info["power"]),
-		Soul:        info["soul"],
-		Rarity:      info["rarity"],
-		Ability:     ability,
-		Version:     CardModelVersion,
+		Side:          info["side"],
+		Language:      "EN",
+		Type:          info["type"],
+		Name:          cardName,
+		Level:         processInt(info["level"]),
+		Cost:          processInt(info["cost"]),
+		FlavorText:    info["flavourText"],
+		Color:         info["color"],
+		Power:         processInt(info["power"]),
+		Soul:          info["soul"],
+		Rarity:        info["rarity"],
+		Abilities:     ability,
+		Version:       CardModelVersion,
 	}
 	if fullURL, err := url.JoinPath(config.baseURL, imageCardURL); err == nil {
 		card.ImageURL = fullURL
@@ -231,10 +259,10 @@ func extractDataEn(config siteConfig, mainHTML *goquery.Selection) Card {
 		card.ImageURL = imageCardURL
 	}
 	if info["specialAttribute"] != "" {
-		card.SpecialAttrib = strings.Split(info["specialAttribute"], "・")
+		card.Traits = strings.Split(info["specialAttribute"], "・")
 	}
 	if info["trigger"] != "" {
-		card.Trigger = strings.Split(info["trigger"], " ")
+		card.Triggers = strings.Split(info["trigger"], " ")
 	}
 	if len(setInfo) > 1 {
 		card.Release = setInfo[0]
@@ -343,21 +371,22 @@ func extractDataJp(config siteConfig, mainHTML *goquery.Selection) Card {
 	})
 
 	card := Card{
-		Name:        strings.TrimSpace(mainHTML.Find("h4 span").First().Text()),
-		Set:         set,
-		SetName:     setName,
-		Side:        infos["side"],
-		CardType:    infos["type"],
-		Level:       processInt(infos["level"]),
-		FlavourText: infos["flavourText"],
-		Colour:      infos["color"],
-		Power:       processInt(infos["power"]),
-		Soul:        infos["soul"],
-		Cost:        processInt(infos["cost"]),
-		Rarity:      infos["rarity"],
-		Ability:     ability,
-		Version:     CardModelVersion,
-		Cardcode:    titleSpan,
+		CardNumber: titleSpan,
+		SetID:      set,
+		SetName:    setName,
+		Side:       infos["side"],
+		Language:   "JP",
+		Type:       infos["type"],
+		Name:       strings.TrimSpace(mainHTML.Find("h4 span").First().Text()),
+		Level:      processInt(infos["level"]),
+		FlavorText: infos["flavourText"],
+		Color:      infos["color"],
+		Power:      processInt(infos["power"]),
+		Soul:       infos["soul"],
+		Cost:       processInt(infos["cost"]),
+		Rarity:     infos["rarity"],
+		Abilities:  ability,
+		Version:    CardModelVersion,
 	}
 	if fullURL, err := url.JoinPath(config.baseURL, imageCardURL); err == nil {
 		card.ImageURL = fullURL
@@ -366,10 +395,10 @@ func extractDataJp(config siteConfig, mainHTML *goquery.Selection) Card {
 		card.ImageURL = imageCardURL
 	}
 	if infos["specialAttribute"] != "" {
-		card.SpecialAttrib = strings.Split(infos["specialAttribute"], "・")
+		card.Traits = strings.Split(infos["specialAttribute"], "・")
 	}
 	if infos["trigger"] != "" {
-		card.Trigger = strings.Split(infos["trigger"], " ")
+		card.Triggers = strings.Split(infos["trigger"], " ")
 	}
 	if len(setInfo) > 1 {
 		card.Release = setInfo[0]

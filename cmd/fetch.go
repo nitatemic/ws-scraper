@@ -40,8 +40,8 @@ func writeCards(wg *sync.WaitGroup, lang string, cardCh <-chan fetch.Card) {
 			continue
 		}
 		var buffer bytes.Buffer
-		cardName := fmt.Sprintf("%v-%v-%v.json", card.Set, card.Release, card.ID)
-		dirName := filepath.Join(viper.GetString("cardDir"), lang, card.Set, card.Release)
+		cardName := fmt.Sprintf("%v-%v-%v.json", card.SetID, card.Release, card.ID)
+		dirName := filepath.Join(viper.GetString("cardDir"), lang, card.SetID, card.Release)
 		os.MkdirAll(dirName, 0o744)
 		out, err := os.Create(filepath.Join(dirName, cardName))
 		if err != nil {
