@@ -81,8 +81,8 @@ func assertCardEqualsWithTitle(t *testing.T, title string, got, want Card) {
 	if !equalSlice(got.Triggers, want.Triggers) {
 		t.Errorf("%sIncorrect Trigger: got %v, want %v", prefix, got.Triggers, want.Triggers)
 	}
-	if !equalSlice(got.Abilities, want.Abilities) {
-		t.Errorf("%sIncorrect Ability: got\n %v,\nwant\n %v", prefix, got.Abilities, want.Abilities)
+	if !equalSlice(got.Text, want.Text) {
+		t.Errorf("%sIncorrect Ability: got\n %v,\nwant\n %v", prefix, got.Text, want.Text)
 	}
 	if !equalSlice(got.Traits, want.Traits) {
 		t.Errorf("%sIncorrect SpecialAttrib: got %v, want %v", prefix, got.Traits, want.Traits)
@@ -184,8 +184,8 @@ func TestExtractData_jp(t *testing.T) {
 	if !equalSlice(card.Traits, expectedTrait) {
 		t.Errorf("got %v: expected %v", card.Traits, expectedTrait)
 	}
-	if !equalSlice(card.Abilities, expectedAbility) {
-		t.Errorf("got \n %v: expected \n %v", card.Abilities, expectedAbility)
+	if !equalSlice(card.Text, expectedAbility) {
+		t.Errorf("got \n %v: expected \n %v", card.Text, expectedAbility)
 	}
 }
 
@@ -298,7 +298,7 @@ func TestExtractDataCX_jp(t *testing.T) {
 		ImageURL:      "https://ws-tcg.com/wordpress/wp-content/images/cardlist/b/bd_w63/bd_w63_025.png",
 		Version:       CardModelVersion,
 		Triggers:      []string{"SOUL", "RETURN"},
-		Abilities: []string{
+		Text: []string{
 			"【永】 あなたのキャラすべてに、パワーを＋1000し、ソウルを＋1。",
 			"（[RETURN]：このカードがトリガーした時、あなたは相手のキャラを1枚選び、手札に戻してよい）",
 		},
@@ -402,7 +402,7 @@ func TestExtractData_en(t *testing.T) {
 		Rarity:        "PR",
 		FlavorText:    "I wish someone like this didn't exist.",
 		Traits:        []string{"Master", "Love"},
-		Abilities:     []string{"【AUTO】 When this card is placed on the stage from your hand, choose 1 of your 《Master》 or 《Servant》 characters, and that character gets +1500 power until end of turn."},
+		Text:          []string{"【AUTO】 When this card is placed on the stage from your hand, choose 1 of your 《Master》 or 《Servant》 characters, and that character gets +1500 power until end of turn."},
 		ImageURL:      "https://en.ws-tcg.com/wp/wp-content/images/cardimages/f/fs_s64/FS_BCS_2019_03.png",
 		Version:       CardModelVersion,
 	}
@@ -506,7 +506,7 @@ func TestExtractData_en_multiIconAbility(t *testing.T) {
 		ImageURL:      "https://en.ws-tcg.com/wp/wp-content/images/cardimages/ATLA/BP/ATLA_WX04_007S.png",
 		Triggers:      []string{"SOUL"},
 		Traits:        []string{"World of Avatar", "Air Nomads"},
-		Abilities: []string{
+		Text: []string{
 			"【CONT】 If your climax area has a climax with [CHOICE] in its trigger icon, this card in all of your zones get [CHOICE] in the trigger icon. If there is a climax with [TREASURE] in its trigger icon, this card in all of your zones get [TREASURE] in the trigger icon. If there is a climax with [STANDBY] in its trigger icon, this card in all of your zones get [STANDBY] in the trigger icon. If there is a climax with [GATE] in its trigger icon, this card in all of your zones get [GATE] in the trigger icon.",
 			"【AUTO】 【CLOCK】 Alarm If this card is the top card of your clock, and you have 4 or more 《World of Avatar》 characters, at the beginning of your climax phase, you may put the top card of your deck into your stock.",
 		},
@@ -741,8 +741,8 @@ func TestExtractDataCX_en(t *testing.T) {
 		"【CONT】 All of your characters get +1000 power and +1 soul.",
 		"([GATE]: When this card triggers, you may choose 1 climax in your waiting room, and return it to your hand)",
 	}
-	if !equalSlice(card.Abilities, expectedAbility) {
-		t.Errorf("Incorrect ability. Got %v, want %v", card.Abilities, expectedAbility)
+	if !equalSlice(card.Text, expectedAbility) {
+		t.Errorf("Incorrect ability. Got %v, want %v", card.Text, expectedAbility)
 	}
 }
 
@@ -844,7 +844,7 @@ func TestExtractData_en_specialCardNumbers(t *testing.T) {
 				ImageURL:      "https://en.ws-tcg.com/wp/wp-content/images/cardimages/b/bd_en_w03/BD_EN_W03_004.png",
 				Triggers:      []string{},
 				Traits:        []string{"Music", "Hello, Happy World!"},
-				Abilities: []string{
+				Text: []string{
 					"【AUTO】At the beginning of your climax phase, choose 1 of your 《Music》 characters, and that character gets +1000 power until end of turn.",
 					"【ACT】Brainstorm [(1)【REST】this card] Flip over 4 cards from the top of your deck, and put it into your waiting room. For each climax revealed among those cards, draw up to 1 card.",
 				},
@@ -942,7 +942,7 @@ func TestExtractData_en_specialCardNumbers(t *testing.T) {
 				ImageURL:      "https://en.ws-tcg.com/wp/wp-content/images/cardimages/updates/PR/WS_TCPR_P01.png",
 				Triggers:      []string{"SOUL", "SOUL"},
 				Traits:        []string{},
-				Abilities: []string{
+				Text: []string{
 					"【CONT】  All of your characters get +2 soul.",
 				},
 				Version: CardModelVersion,
@@ -1041,7 +1041,7 @@ func TestExtractData_en_specialCardNumbers(t *testing.T) {
 				ImageURL:      "https://en.ws-tcg.com/wp/wp-content/images/cardimages/RWBY/RWBY_WX03_020PR.png",
 				Triggers:      []string{},
 				Traits:        []string{"Remnant", "JNPR"},
-				Abilities: []string{
+				Text: []string{
 					"【AUTO】 When this card becomes 【REVERSE】, if you have another 《Remnant》 character, and this card's battle opponent is level 0 or lower, you may put the top card of your opponent's clock into their waiting room. If you do, put that character into your opponent's clock.",
 					"【AUTO】 [(1)] When this card is put into your waiting room from the stage, you may pay the cost. If you do, look at up to 3 cards from the top of your deck, choose 1 card from among them, put it into your clock, and put the rest into your waiting room. If you put 1 card into your clock, choose 1 《Remnant》 character in your waiting room, and return it to your hand.",
 				},
@@ -1139,7 +1139,7 @@ func TestExtractData_en_specialCardNumbers(t *testing.T) {
 				ImageURL:      "https://en.ws-tcg.com/wp/wp-content/images/cardimages/updates/PR/BFR_BSL2021_03SPR.png",
 				Triggers:      []string{},
 				Traits:        []string{"Game", "Weapon"},
-				Abilities: []string{
+				Text: []string{
 					"【AUTO】 When your climax is placed on your climax area, this card gets +3000 power until end of turn.",
 					"【AUTO】 【CXCOMBO】 When this card attacks, if \"Never-Ending Sunset Area\" is in your climax area, and you have another 《Game》 character, put the top 2 cards of your deck into your waiting room, choose up to 1 level X or lower 《Game》 character in your waiting room, and return it to your hand. X is equal to the total level of the cards put into your waiting room by this effect. (Climax are regarded as level 0)",
 				},
@@ -1237,7 +1237,7 @@ func TestExtractData_en_specialCardNumbers(t *testing.T) {
 				ImageURL:      "https://en.ws-tcg.com/wp/wp-content/images/cardimages/TSK2/TSK_S82_E070S.png",
 				Triggers:      []string{},
 				Traits:        []string{"Demon Continent", "Slime"},
-				Abilities: []string{
+				Text: []string{
 					"【AUTO】 When this card is placed on the stage from your hand, reveal the top card of your deck. If that card is a 《Demon Continent》 character, this card gets +1 level and +1500 power until end of turn. (Return the revealed card to its original place)",
 					"【AUTO】 When this card's battle opponent becomes 【REVERSE】, choose 1 of your other 《Demon Continent》 characters, 【REST】 it, and move it to an open position of your back stage.",
 				},

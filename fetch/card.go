@@ -65,18 +65,28 @@ type Card struct {
 	Type string `json:"type"`
 
 	// Name of the card.
-	Name       string   `json:"name"`
-	Color      string   `json:"color"`
-	Level      string   `json:"level"`
-	Cost       string   `json:"cost"`
-	Power      string   `json:"power"`
-	Soul       string   `json:"soul"`
-	Rarity     string   `json:"rarity"`
-	FlavorText string   `json:"flavorText"`
-	Triggers   []string `json:"triggers"`
-	Abilities  []string `json:"abilities"`
-	Traits     []string `json:"traits"`
-	ImageURL   string   `json:"imageURL"`
+	Name string `json:"name"`
+	// Color of the card. Should be either "BLUE", "GREEN", "RED", or "YELLOW".
+	// ...Except for the two purple cards (むらさきパプリス(PY/S38-125) and むらさきぷよ(PY/S38-120)).
+	Color string `json:"color"`
+	// Cost to play the card
+	Cost string `json:"cost"`
+	// Level required in order to play the card.
+	Level string `json:"level"`
+	// Power indicates the card's battle strength. Only valid for Character cards.
+	Power string `json:"power"`
+	// Soul is an integer indicating how many soul points the card has. Only valid for Character cards.
+	Soul string `json:"soul"`
+	// Text describing the card's abilities.
+	Text []string `json:"text"`
+	// Traits indicating the attributes the card has. These are often referenced in card text.
+	Traits []string `json:"traits"`
+	// Triggers that the card has and are activated during trigger checks.
+	Triggers []string `json:"triggers"`
+
+	FlavorText string `json:"flavorText"`
+	ImageURL   string `json:"imageURL"`
+	Rarity     string `json:"rarity"`
 
 	Version string `json:"version"`
 }
@@ -251,7 +261,7 @@ func extractDataEn(config siteConfig, mainHTML *goquery.Selection) Card {
 		Color:         info["color"],
 		Power:         filterDash(info["power"]),
 		Rarity:        info["rarity"],
-		Abilities:     ability,
+		Text:          ability,
 		Version:       CardModelVersion,
 	}
 	if fullURL, err := joinPath(config.baseURL, imageCardURL); err == nil {
@@ -384,7 +394,7 @@ func extractDataJp(config siteConfig, mainHTML *goquery.Selection) Card {
 		Power:         filterDash(infos["power"]),
 		Cost:          filterDash(infos["cost"]),
 		Rarity:        infos["rarity"],
-		Abilities:     ability,
+		Text:          ability,
 		Version:       CardModelVersion,
 	}
 	if fullURL, err := joinPath(config.baseURL, imageCardURL); err == nil {
