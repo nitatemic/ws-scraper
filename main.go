@@ -14,7 +14,7 @@
 
 package main
 
-import "github.com/kwadkore/wsoffcli/cmd"
+import "github.com/kwadkore/ws-scraper/cmd"
 
 func main() {
 	cmd.Execute()

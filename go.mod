@@ -1,4 +1,4 @@
-module github.com/kwadkore/wsoffcli
+module github.com/kwadkore/ws-scraper
 
 go 1.21
 

@@ -10,7 +10,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/kwadkore/wsoffcli/fetch"
+	"github.com/kwadkore/ws-scraper/fetch"
 	"github.com/spf13/cobra"
 )
 
