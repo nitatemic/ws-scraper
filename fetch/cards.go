@@ -89,19 +89,18 @@ var siteConfigs = map[SiteLanguage]siteConfig{
 						log.Printf("Error getting sub path: %v\n", err)
 						return
 					}
-					fullPath, err := url.JoinPath(task.siteConfig.baseURL, subPath)
+					fp, err := joinPath(task.siteConfig.baseURL, subPath)
 					if err != nil {
 						log.Printf("Error getting full path: %v\n", err)
 						return
 					}
-					fullPath, _ = url.QueryUnescape(fullPath)
+					fullPath := fp.String()
 
 					proxy := biri.GetClient()
-					log.Println("Got proxy")
 					proxy.Client.Jar = task.cookieJar
 					detailedPageResp, err := proxy.Client.Get(fullPath)
 					if err != nil || detailedPageResp.StatusCode != http.StatusOK {
-						log.Printf("Failed to get detailed page: %v\n", err)
+						log.Printf("Failed to get detailed page from %q: %v\n", fullPath, err)
 					} else {
 						proxy.Readd()
 						doc, err := goquery.NewDocumentFromReader(detailedPageResp.Body)
@@ -236,6 +235,18 @@ func getTasksForRecentReleases(siteCfg siteConfig, doc *goquery.Document) []scra
 		}
 	})
 	return tasks
+}
+
+func joinPath(baseURL, subPath string) (*url.URL, error) {
+	b, err := url.Parse(baseURL)
+	if err != nil {
+		return nil, fmt.Errorf("couldn't parse base URL: %v", err)
+	}
+	sp, err := url.Parse(subPath)
+	if err != nil {
+		return nil, fmt.Errorf("couldn't parse sub path: %v", err)
+	}
+	return b.ResolveReference(sp), nil
 }
 
 func pageFetchWorker(id int, task *scrapeTask) {

@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"html"
 	"log"
-	"net/url"
 	"path"
 	"regexp"
 	"strconv"
@@ -255,8 +254,8 @@ func extractDataEn(config siteConfig, mainHTML *goquery.Selection) Card {
 		Abilities:     ability,
 		Version:       CardModelVersion,
 	}
-	if fullURL, err := url.JoinPath(config.baseURL, imageCardURL); err == nil {
-		card.ImageURL = fullURL
+	if fullURL, err := joinPath(config.baseURL, imageCardURL); err == nil {
+		card.ImageURL = fullURL.String()
 	} else {
 		log.Printf("Couldn't form full image URL: %v\n", err)
 		card.ImageURL = imageCardURL
@@ -388,8 +387,8 @@ func extractDataJp(config siteConfig, mainHTML *goquery.Selection) Card {
 		Abilities:     ability,
 		Version:       CardModelVersion,
 	}
-	if fullURL, err := url.JoinPath(config.baseURL, imageCardURL); err == nil {
-		card.ImageURL = fullURL
+	if fullURL, err := joinPath(config.baseURL, imageCardURL); err == nil {
+		card.ImageURL = fullURL.String()
 	} else {
 		log.Printf("Couldn't form full image URL: %v\n", err)
 		card.ImageURL = imageCardURL
