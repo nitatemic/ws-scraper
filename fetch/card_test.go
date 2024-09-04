@@ -1,6 +1,7 @@
 package fetch
 
 import (
+	"fmt"
 	"log"
 	"strings"
 	"testing"
@@ -24,68 +25,76 @@ func equalSlice(sliceA []string, sliceB []string) bool {
 }
 
 func assertCardEquals(t *testing.T, got, want Card) {
+	assertCardEqualsWithTitle(t, "", got, want)
+}
+
+func assertCardEqualsWithTitle(t *testing.T, title string, got, want Card) {
+	prefix := ""
+	if title != "" {
+		prefix = fmt.Sprintf("[%s]: ", title)
+	}
 	if got.SetID != want.SetID {
-		t.Errorf("Incorrect Set: got %q, want %q", got.SetID, want.SetID)
+		t.Errorf("%sIncorrect Set: got %q, want %q", prefix, got.SetID, want.SetID)
 	}
 	if got.SetName != want.SetName {
-		t.Errorf("Incorrect SetName: got %q, want %q", got.SetName, want.SetName)
+		t.Errorf("%sIncorrect SetName: got %q, want %q", prefix, got.SetName, want.SetName)
 	}
 	if got.Side != want.Side {
-		t.Errorf("Incorrect Side: got %q, want %q", got.Side, want.Side)
+		t.Errorf("%sIncorrect Side: got %q, want %q", prefix, got.Side, want.Side)
 	}
 	if got.Release != want.Release {
-		t.Errorf("Incorrect Release: got %q, want %q", got.Release, want.Release)
+		t.Errorf("%sIncorrect Release: got %q, want %q", prefix, got.Release, want.Release)
 	}
 	if got.ID != want.ID {
-		t.Errorf("Incorrect ID: got %q, want %q", got.ID, want.ID)
+		t.Errorf("%sIncorrect ID: got %q, want %q", prefix, got.ID, want.ID)
 	}
 	if got.Name != want.Name {
-		t.Errorf("Incorrect Name: got %q, want %q", got.Name, want.Name)
+		t.Errorf("%sIncorrect Name: got %q, want %q", prefix, got.Name, want.Name)
 	}
 	if got.Language != want.Language {
-		t.Errorf("Incorrect Language: got %q, want %q", got.Language, want.Language)
+		t.Errorf("%sIncorrect Language: got %q, want %q", prefix, got.Language, want.Language)
 	}
 	if got.Type != want.Type {
-		t.Errorf("Incorrect CardType: got %q, want %q", got.Type, want.Type)
+		t.Errorf("%sIncorrect CardType: got %q, want %q", prefix, got.Type, want.Type)
 	}
 	if got.Color != want.Color {
-		t.Errorf("Incorrect Colour: got %q, want %q", got.Color, want.Color)
+		t.Errorf("%sIncorrect Colour: got %q, want %q", prefix, got.Color, want.Color)
 	}
 	if got.Level != want.Level {
-		t.Errorf("Incorrect Level: got %q, want %q", got.Level, want.Level)
+		t.Errorf("%sIncorrect Level: got %q, want %q", prefix, got.Level, want.Level)
 	}
 	if got.Cost != want.Cost {
-		t.Errorf("Incorrect Cost: got %q, want %q", got.Cost, want.Cost)
+		t.Errorf("%sIncorrect Cost: got %q, want %q", prefix, got.Cost, want.Cost)
 	}
 	if got.Power != want.Power {
-		t.Errorf("Incorrect Power: got %q, want %q", got.Power, want.Power)
+		t.Errorf("%sIncorrect Power: got %q, want %q", prefix, got.Power, want.Power)
 	}
 	if got.Soul != want.Soul {
-		t.Errorf("Incorrect Soul: got %q, want %q", got.Soul, want.Soul)
+		t.Errorf("%sIncorrect Soul: got %q, want %q", prefix, got.Soul, want.Soul)
 	}
 	if got.Rarity != want.Rarity {
-		t.Errorf("Incorrect Rarity: got %q, want %q", got.Rarity, want.Rarity)
+		t.Errorf("%sIncorrect Rarity: got %q, want %q", prefix, got.Rarity, want.Rarity)
 	}
 	if got.FlavorText != want.FlavorText {
-		t.Errorf("Incorrect FlavourText: got %q, want %q", got.FlavorText, want.FlavorText)
+		t.Errorf("%sIncorrect FlavourText: got %q, want %q", prefix, got.FlavorText, want.FlavorText)
 	}
 	if !equalSlice(got.Triggers, want.Triggers) {
-		t.Errorf("Incorrect Trigger: got %v, want %v", got.Triggers, want.Triggers)
+		t.Errorf("%sIncorrect Trigger: got %v, want %v", prefix, got.Triggers, want.Triggers)
 	}
 	if !equalSlice(got.Abilities, want.Abilities) {
-		t.Errorf("Incorrect Ability: got\n %v,\nwant\n %v", got.Abilities, want.Abilities)
+		t.Errorf("%sIncorrect Ability: got\n %v,\nwant\n %v", prefix, got.Abilities, want.Abilities)
 	}
 	if !equalSlice(got.Traits, want.Traits) {
-		t.Errorf("Incorrect SpecialAttrib: got %v, want %v", got.Traits, want.Traits)
+		t.Errorf("%sIncorrect SpecialAttrib: got %v, want %v", prefix, got.Traits, want.Traits)
 	}
 	if got.Version != want.Version {
-		t.Errorf("Incorrect Version: got %q, want %q", got.Version, want.Version)
+		t.Errorf("%sIncorrect Version: got %q, want %q", prefix, got.Version, want.Version)
 	}
 	if got.ImageURL != want.ImageURL {
-		t.Errorf("Incorrect ImageURL: got %q, want %q", got.ImageURL, want.ImageURL)
+		t.Errorf("%sIncorrect ImageURL: got %q, want %q", prefix, got.ImageURL, want.ImageURL)
 	}
 	if got.CardNumber != want.CardNumber {
-		t.Errorf("Incorrect Cardcode: got %q, want %q", got.CardNumber, want.CardNumber)
+		t.Errorf("%sIncorrect Cardcode: got %q, want %q", prefix, got.CardNumber, want.CardNumber)
 	}
 }
 
@@ -269,25 +278,26 @@ func TestExtractDataCX_jp(t *testing.T) {
 	card := extractData(siteConfigs[JP], doc.Clone())
 
 	expectedCard := Card{
-		Name:       "キラキラのお日様",
-		SetID:      "BD",
-		SetName:    "「バンドリ！ ガールズバンドパーティ！」Vol.2",
-		Side:       "W",
-		CardNumber: "BD/W63-025",
-		Release:    "W63",
-		ID:         "025",
-		Color:      "YELLOW",
-		Language:   "JP",
-		Type:       "CX",
-		Soul:       "",
-		Level:      "",
-		Cost:       "",
-		FlavorText: "楽しい気持ちは誰かといると生まれるものってこと！",
-		Power:      "",
-		Rarity:     "CR",
-		ImageURL:   "https://ws-tcg.com/wordpress/wp-content/images/cardlist/b/bd_w63/bd_w63_025.png",
-		Version:    CardModelVersion,
-		Triggers:   []string{"SOUL", "RETURN"},
+		Name:          "キラキラのお日様",
+		SetID:         "BD",
+		SetName:       "「バンドリ！ ガールズバンドパーティ！」Vol.2",
+		Side:          "W",
+		CardNumber:    "BD/W63-025",
+		Release:       "W63",
+		ReleasePackID: "63",
+		ID:            "025",
+		Color:         "YELLOW",
+		Language:      "JP",
+		Type:          "CX",
+		Soul:          "",
+		Level:         "",
+		Cost:          "",
+		FlavorText:    "楽しい気持ちは誰かといると生まれるものってこと！",
+		Power:         "",
+		Rarity:        "CR",
+		ImageURL:      "https://ws-tcg.com/wordpress/wp-content/images/cardlist/b/bd_w63/bd_w63_025.png",
+		Version:       CardModelVersion,
+		Triggers:      []string{"SOUL", "RETURN"},
 		Abilities: []string{
 			"【永】 あなたのキャラすべてに、パワーを＋1000し、ソウルを＋1。",
 			"（[RETURN]：このカードがトリガーした時、あなたは相手のキャラを1枚選び、手札に戻してよい）",
@@ -733,5 +743,517 @@ func TestExtractDataCX_en(t *testing.T) {
 	}
 	if !equalSlice(card.Abilities, expectedAbility) {
 		t.Errorf("Incorrect ability. Got %v, want %v", card.Abilities, expectedAbility)
+	}
+}
+
+func TestExtractData_en_specialCardNumbers(t *testing.T) {
+	testcases := []struct {
+		name         string
+		html         string
+		lang         SiteLanguage
+		expectedCard Card
+	}{
+		{
+			`"A Nice Change" Kanon Matsubara`,
+			`<div class="p-cards__detail-wrapper">
+        <div class="p-cards__detail-wrapper-inner">
+          <div class="image"><img src="/wp/wp-content/images/cardimages/b/bd_en_w03/BD_EN_W03_004.png" alt="&quot;A Nice Change&quot; Kanon Matsubara" decoding="async">
+          </div>
+          <div class="p-cards__detail-textarea">
+            <p class="number">BD/EN-W03-004</p>
+            <p class="ttl u-mt-14 u-mt-16-sp">"A Nice Change" Kanon Matsubara</p>
+            <div class="p-cards__detail-type u-mt-22 u-mt-40-sp">
+              <dl>
+                <dt>Expansion</dt>
+                <dd>BanG Dream! Girls Band Party! MULTI LIVE</dd>
+              </dl>
+              <dl>
+                <dt>Traits</dt>
+                <dd>Music・Hello, Happy World!</dd>
+              </dl>
+              <dl>
+                <dt>Card Type</dt>
+                <dd>Character</dd>
+              </dl>
+              <dl>
+                <dt>Rarity</dt>
+                <dd>R</dd>
+              </dl>
+              <dl>
+                <dt>Side</dt>
+                <dd>
+                                    <img src="/cardlist/partimages/w.gif" alt="" decoding="async">
+                                  </dd>
+              </dl>
+              <dl>
+                <dt>Color</dt>
+                <dd><img src="/wp/wp-content/images/partimages/yellow.gif"></dd>
+              </dl>
+            </div>
+            <div class="p-cards__detail-status u-mt-22 u-mt-40-sp">
+              <dl>
+                <dt>Level</dt>
+                <dd>0</dd>
+              </dl>
+              <dl>
+                <dt>Cost</dt>
+                <dd>0</dd>
+              </dl>
+              <dl>
+                <dt>Power</dt>
+                <dd>1000</dd>
+              </dl>
+              <dl>
+                <dt>Trigger</dt>
+                <dd>-</dd>
+              </dl>
+              <dl>
+                <dt>Soul</dt>
+                <dd><img src="/wp/wp-content/images/partimages/soul.gif"></dd>
+              </dl>
+            </div>
+            <div class="p-cards__detail u-mt-22 u-mt-40-sp">
+              <p>【AUTO】At the beginning of your climax phase, choose 1 of your 《Music》 characters, and that character gets +1000 power until end of turn.<br>【ACT】Brainstorm [(1)【REST】this card] Flip over 4 cards from the top of your deck, and put it into your waiting room. For each climax revealed among those cards, draw up to 1 card.</p>
+            </div>
+            <div class="p-cards__detail-serif u-mt-22 u-mt-40-sp">
+              <p>All it takes is something small for people to change the way we think and act... That's all it took for us.</p>
+            </div>
+            <p class="p-cards__detail-copyrights u-mt-22 u-mt-40-sp">©BanG Dream! Project ©Craft Egg Inc. ©bushiroad All Rights Reserved.</p>
+          </div>
+        </div>
+      </div>`,
+			EN,
+			Card{
+				CardNumber:    "BD/EN-W03-004",
+				SetID:         "BD",
+				ExpansionName: "BanG Dream! Girls Band Party! MULTI LIVE",
+				Side:          "W",
+				Release:       "EN-W03",
+				ReleasePackID: "03",
+				ID:            "004",
+				Language:      "EN",
+				Type:          "CH",
+				Name:          `"A Nice Change" Kanon Matsubara`,
+				Color:         "YELLOW",
+				Soul:          "1",
+				Level:         "0",
+				Cost:          "0",
+				FlavorText:    "All it takes is something small for people to change the way we think and act... That's all it took for us.",
+				Power:         "1000",
+				Rarity:        "R",
+				ImageURL:      "https://en.ws-tcg.com/wp/wp-content/images/cardimages/b/bd_en_w03/BD_EN_W03_004.png",
+				Triggers:      []string{},
+				Traits:        []string{"Music", "Hello, Happy World!"},
+				Abilities: []string{
+					"【AUTO】At the beginning of your climax phase, choose 1 of your 《Music》 characters, and that character gets +1000 power until end of turn.",
+					"【ACT】Brainstorm [(1)【REST】this card] Flip over 4 cards from the top of your deck, and put it into your waiting room. For each climax revealed among those cards, draw up to 1 card.",
+				},
+				Version: CardModelVersion,
+			},
+		},
+		{
+			"Idol Theme Cup 2024",
+			`<div class="p-cards__detail-wrapper">
+        <div class="p-cards__detail-wrapper-inner">
+          <div class="image"><img src="/wp/wp-content/images/cardimages/updates/PR/WS_TCPR_P01.png" alt="Idol Theme Cup 2024" decoding="async">
+          </div>
+          <div class="p-cards__detail-textarea">
+            <p class="number">WS/TCPR-P01</p>
+            <p class="ttl u-mt-14 u-mt-16-sp">Idol Theme Cup 2024</p>
+            <div class="p-cards__detail-type u-mt-22 u-mt-40-sp">
+              <dl>
+                <dt>Expansion</dt>
+                <dd>PR Card 【Weiẞ Side】</dd>
+              </dl>
+              <dl>
+                <dt>Traits</dt>
+                <dd></dd>
+              </dl>
+              <dl>
+                <dt>Card Type</dt>
+                <dd>Climax</dd>
+              </dl>
+              <dl>
+                <dt>Rarity</dt>
+                <dd>PR</dd>
+              </dl>
+              <dl>
+                <dt>Side</dt>
+                <dd>
+                                    <img src="/cardlist/partimages/w.gif" alt="" decoding="async">
+                                  </dd>
+              </dl>
+              <dl>
+                <dt>Color</dt>
+                <dd><img src="/wp/wp-content/images/partimages/red.gif"></dd>
+              </dl>
+            </div>
+            <div class="p-cards__detail-status u-mt-22 u-mt-40-sp">
+              <dl>
+                <dt>Level</dt>
+                <dd>-</dd>
+              </dl>
+              <dl>
+                <dt>Cost</dt>
+                <dd>-</dd>
+              </dl>
+              <dl>
+                <dt>Power</dt>
+                <dd>-</dd>
+              </dl>
+              <dl>
+                <dt>Trigger</dt>
+                <dd><img src="/wp/wp-content/images/partimages/soul.gif"><img src="/wp/wp-content/images/partimages/soul.gif"></dd>
+              </dl>
+              <dl>
+                <dt>Soul</dt>
+                <dd>-</dd>
+              </dl>
+            </div>
+            <div class="p-cards__detail u-mt-22 u-mt-40-sp">
+              <p>【CONT】  All of your characters get +2 soul.</p>
+            </div>
+            <div class="p-cards__detail-serif u-mt-22 u-mt-40-sp">
+              <p>-</p>
+            </div>
+            <p class="p-cards__detail-copyrights u-mt-22 u-mt-40-sp">おきたくん</p>
+          </div>
+        </div>
+      </div>`,
+			EN,
+			Card{
+				CardNumber:    "WS/TCPR-P01",
+				SetID:         "WS",
+				ExpansionName: "PR Card 【Weiẞ Side】",
+				Side:          "W",
+				Release:       "TCPR",
+				ReleasePackID: "",
+				ID:            "P01",
+				Language:      "EN",
+				Type:          "CX",
+				Name:          "Idol Theme Cup 2024",
+				Color:         "RED",
+				Soul:          "",
+				Level:         "",
+				Cost:          "",
+				FlavorText:    "",
+				Power:         "",
+				Rarity:        "PR",
+				ImageURL:      "https://en.ws-tcg.com/wp/wp-content/images/cardimages/updates/PR/WS_TCPR_P01.png",
+				Triggers:      []string{"SOUL", "SOUL"},
+				Traits:        []string{},
+				Abilities: []string{
+					"【CONT】  All of your characters get +2 soul.",
+				},
+				Version: CardModelVersion,
+			},
+		},
+		{
+			"Lie Ren",
+			`<div class="p-cards__detail-wrapper">
+        <div class="p-cards__detail-wrapper-inner">
+          <div class="image"><img src="/wp/wp-content/images/cardimages/RWBY/RWBY_WX03_020PR.png" alt="Lie Ren" decoding="async">
+          </div>
+          <div class="p-cards__detail-textarea">
+            <p class="number">RWBY/BRO2021-01+PR</p>
+            <p class="ttl u-mt-14 u-mt-16-sp">Lie Ren</p>
+            <div class="p-cards__detail-type u-mt-22 u-mt-40-sp">
+              <dl>
+                <dt>Expansion</dt>
+                <dd>PR Card 【Weiẞ Side】</dd>
+              </dl>
+              <dl>
+                <dt>Traits</dt>
+                <dd>Remnant・JNPR</dd>
+              </dl>
+              <dl>
+                <dt>Card Type</dt>
+                <dd>Character</dd>
+              </dl>
+              <dl>
+                <dt>Rarity</dt>
+                <dd>PR</dd>
+              </dl>
+              <dl>
+                <dt>Side</dt>
+                <dd>
+                                    <img src="/cardlist/partimages/w.gif" alt="" decoding="async">
+                                  </dd>
+              </dl>
+              <dl>
+                <dt>Color</dt>
+                <dd><img src="/wp/wp-content/images/partimages/green.gif"></dd>
+              </dl>
+            </div>
+            <div class="p-cards__detail-status u-mt-22 u-mt-40-sp">
+              <dl>
+                <dt>Level</dt>
+                <dd>0</dd>
+              </dl>
+              <dl>
+                <dt>Cost</dt>
+                <dd>0</dd>
+              </dl>
+              <dl>
+                <dt>Power</dt>
+                <dd>500</dd>
+              </dl>
+              <dl>
+                <dt>Trigger</dt>
+                <dd>-</dd>
+              </dl>
+              <dl>
+                <dt>Soul</dt>
+                <dd><img src="/wp/wp-content/images/partimages/soul.gif"></dd>
+              </dl>
+            </div>
+            <div class="p-cards__detail u-mt-22 u-mt-40-sp">
+              <p>【AUTO】 When this card becomes 【REVERSE】, if you have another 《Remnant》 character, and this card's battle opponent is level 0 or lower, you may put the top card of your opponent's clock into their waiting room. If you do, put that character into your opponent's clock.<br>【AUTO】 [(1)] When this card is put into your waiting room from the stage, you may pay the cost. If you do, look at up to 3 cards from the top of your deck, choose 1 card from among them, put it into your clock, and put the rest into your waiting room. If you put 1 card into your clock, choose 1 《Remnant》 character in your waiting room, and return it to your hand.</p>
+            </div>
+            <div class="p-cards__detail-serif u-mt-22 u-mt-40-sp">
+              <p></p>
+            </div>
+            <p class="p-cards__detail-copyrights u-mt-22 u-mt-40-sp">© 2021 ROOSTER TEETH PRODUCTIONS, LLC, ALL RIGHTS RESERVED.</p>
+          </div>
+        </div>
+      </div>`,
+			EN,
+			Card{
+				// The website puts the card number as "RWBY/BRO2021-01+PR",
+				// but it's actually "RWBY/BRO2021-01 PR".
+				CardNumber:    "RWBY/BRO2021-01 PR",
+				SetID:         "RWBY",
+				ExpansionName: "PR Card 【Weiẞ Side】",
+				Side:          "W",
+				Release:       "BRO2021",
+				ReleasePackID: "2021",
+				ID:            "01 PR",
+				Language:      "EN",
+				Type:          "CH",
+				Name:          "Lie Ren",
+				Color:         "GREEN",
+				Soul:          "1",
+				Level:         "0",
+				Cost:          "0",
+				FlavorText:    "",
+				Power:         "500",
+				Rarity:        "PR",
+				ImageURL:      "https://en.ws-tcg.com/wp/wp-content/images/cardimages/RWBY/RWBY_WX03_020PR.png",
+				Triggers:      []string{},
+				Traits:        []string{"Remnant", "JNPR"},
+				Abilities: []string{
+					"【AUTO】 When this card becomes 【REVERSE】, if you have another 《Remnant》 character, and this card's battle opponent is level 0 or lower, you may put the top card of your opponent's clock into their waiting room. If you do, put that character into your opponent's clock.",
+					"【AUTO】 [(1)] When this card is put into your waiting room from the stage, you may pay the cost. If you do, look at up to 3 cards from the top of your deck, choose 1 card from among them, put it into your clock, and put the rest into your waiting room. If you put 1 card into your clock, choose 1 《Remnant》 character in your waiting room, and return it to your hand.",
+				},
+				Version: CardModelVersion,
+			},
+		},
+		{
+			"Moment Between the Two, Sally",
+			`<div class="p-cards__detail-wrapper">
+        <div class="p-cards__detail-wrapper-inner">
+          <div class="image"><img src="/wp/wp-content/images/cardimages/updates/PR/BFR_BSL2021_03SPR.png" alt="Moment Between the Two, Sally" decoding="async">
+          </div>
+          <div class="p-cards__detail-textarea">
+            <p class="number">BFR/BSL2021-03S</p>
+            <p class="ttl u-mt-14 u-mt-16-sp">Moment Between the Two, Sally</p>
+            <div class="p-cards__detail-type u-mt-22 u-mt-40-sp">
+              <dl>
+                <dt>Expansion</dt>
+                <dd>PR Card 【Schwarz Side】</dd>
+              </dl>
+              <dl>
+                <dt>Traits</dt>
+                <dd>Game・Weapon</dd>
+              </dl>
+              <dl>
+                <dt>Card Type</dt>
+                <dd>Character</dd>
+              </dl>
+              <dl>
+                <dt>Rarity</dt>
+                <dd>PR</dd>
+              </dl>
+              <dl>
+                <dt>Side</dt>
+                <dd>
+                                    <img src="/cardlist/partimages/s.gif" alt="" decoding="async">
+                                  </dd>
+              </dl>
+              <dl>
+                <dt>Color</dt>
+                <dd><img src="/wp/wp-content/images/partimages/blue.gif"></dd>
+              </dl>
+            </div>
+            <div class="p-cards__detail-status u-mt-22 u-mt-40-sp">
+              <dl>
+                <dt>Level</dt>
+                <dd>1</dd>
+              </dl>
+              <dl>
+                <dt>Cost</dt>
+                <dd>0</dd>
+              </dl>
+              <dl>
+                <dt>Power</dt>
+                <dd>4000</dd>
+              </dl>
+              <dl>
+                <dt>Trigger</dt>
+                <dd>-</dd>
+              </dl>
+              <dl>
+                <dt>Soul</dt>
+                <dd><img src="/wp/wp-content/images/partimages/soul.gif"></dd>
+              </dl>
+            </div>
+            <div class="p-cards__detail u-mt-22 u-mt-40-sp">
+              <p>【AUTO】 When your climax is placed on your climax area, this card gets +3000 power until end of turn.<br>【AUTO】 【CXCOMBO】 When this card attacks, if "Never-Ending Sunset Area" is in your climax area, and you have another 《Game》 character, put the top 2 cards of your deck into your waiting room, choose up to 1 level X or lower 《Game》 character in your waiting room, and return it to your hand. X is equal to the total level of the cards put into your waiting room by this effect. (Climax are regarded as level 0)</p>
+            </div>
+            <div class="p-cards__detail-serif u-mt-22 u-mt-40-sp">
+              <p>-</p>
+            </div>
+            <p class="p-cards__detail-copyrights u-mt-22 u-mt-40-sp">©2020 Yuumikan・Koin/KADOKAWA/Bofuri Project</p>
+          </div>
+        </div>
+      </div>`,
+			EN,
+			Card{
+				CardNumber:    "BFR/BSL2021-03S",
+				SetID:         "BFR",
+				ExpansionName: "PR Card 【Schwarz Side】",
+				Side:          "S",
+				Release:       "BSL2021",
+				ReleasePackID: "2021",
+				ID:            "03S",
+				Language:      "EN",
+				Type:          "CH",
+				Name:          "Moment Between the Two, Sally",
+				Color:         "BLUE",
+				Soul:          "1",
+				Level:         "1",
+				Cost:          "0",
+				FlavorText:    "",
+				Power:         "4000",
+				Rarity:        "PR",
+				ImageURL:      "https://en.ws-tcg.com/wp/wp-content/images/cardimages/updates/PR/BFR_BSL2021_03SPR.png",
+				Triggers:      []string{},
+				Traits:        []string{"Game", "Weapon"},
+				Abilities: []string{
+					"【AUTO】 When your climax is placed on your climax area, this card gets +3000 power until end of turn.",
+					"【AUTO】 【CXCOMBO】 When this card attacks, if \"Never-Ending Sunset Area\" is in your climax area, and you have another 《Game》 character, put the top 2 cards of your deck into your waiting room, choose up to 1 level X or lower 《Game》 character in your waiting room, and return it to your hand. X is equal to the total level of the cards put into your waiting room by this effect. (Climax are regarded as level 0)",
+				},
+				Version: CardModelVersion,
+			},
+		},
+		{
+			"Triumphant Return, Rimuru",
+			`<div class="p-cards__detail-wrapper">
+        <div class="p-cards__detail-wrapper-inner">
+          <div class="image"><img src="/wp/wp-content/images/cardimages/TSK2/TSK_S82_E070S.png" alt="Triumphant Return, Rimuru" decoding="async">
+          </div>
+          <div class="p-cards__detail-textarea">
+            <p class="number">TSK/S82-E070SSP%2B</p>
+            <p class="ttl u-mt-14 u-mt-16-sp">Triumphant Return, Rimuru</p>
+            <div class="p-cards__detail-type u-mt-22 u-mt-40-sp">
+              <dl>
+                <dt>Expansion</dt>
+                <dd>That Time I Got Reincarnated as a Slime Vol.2 </dd>
+              </dl>
+              <dl>
+                <dt>Traits</dt>
+                <dd>Demon Continent・Slime</dd>
+              </dl>
+              <dl>
+                <dt>Card Type</dt>
+                <dd>Character</dd>
+              </dl>
+              <dl>
+                <dt>Rarity</dt>
+                <dd>SSP+</dd>
+              </dl>
+              <dl>
+                <dt>Side</dt>
+                <dd>
+                                    <img src="/cardlist/partimages/s.gif" alt="" decoding="async">
+                                  </dd>
+              </dl>
+              <dl>
+                <dt>Color</dt>
+                <dd><img src="/wp/wp-content/images/partimages/blue.gif"></dd>
+              </dl>
+            </div>
+            <div class="p-cards__detail-status u-mt-22 u-mt-40-sp">
+              <dl>
+                <dt>Level</dt>
+                <dd>0</dd>
+              </dl>
+              <dl>
+                <dt>Cost</dt>
+                <dd>0</dd>
+              </dl>
+              <dl>
+                <dt>Power</dt>
+                <dd>2000</dd>
+              </dl>
+              <dl>
+                <dt>Trigger</dt>
+                <dd>-</dd>
+              </dl>
+              <dl>
+                <dt>Soul</dt>
+                <dd><img src="/wp/wp-content/images/partimages/soul.gif"></dd>
+              </dl>
+            </div>
+            <div class="p-cards__detail u-mt-22 u-mt-40-sp">
+              <p>【AUTO】 When this card is placed on the stage from your hand, reveal the top card of your deck. If that card is a 《Demon Continent》 character, this card gets +1 level and +1500 power until end of turn. (Return the revealed card to its original place)<br>【AUTO】 When this card's battle opponent becomes 【REVERSE】, choose 1 of your other 《Demon Continent》 characters, 【REST】 it, and move it to an open position of your back stage.</p>
+            </div>
+            <div class="p-cards__detail-serif u-mt-22 u-mt-40-sp">
+              <p>-</p>
+            </div>
+            <p class="p-cards__detail-copyrights u-mt-22 u-mt-40-sp">© Taiki Kawakami, Fuse, KODANSHA/“Ten-Sura” Project</p>
+          </div>
+        </div>
+      </div>`,
+			EN,
+			Card{
+				CardNumber:    "TSK/S82-E070SSP+",
+				SetID:         "TSK",
+				ExpansionName: "That Time I Got Reincarnated as a Slime Vol.2",
+				Side:          "S",
+				Release:       "S82",
+				ReleasePackID: "82",
+				ID:            "E070SSP+",
+				Language:      "EN",
+				Type:          "CH",
+				Name:          "Triumphant Return, Rimuru",
+				Color:         "BLUE",
+				Soul:          "1",
+				Level:         "0",
+				Cost:          "0",
+				FlavorText:    "",
+				Power:         "2000",
+				Rarity:        "SSP+",
+				ImageURL:      "https://en.ws-tcg.com/wp/wp-content/images/cardimages/TSK2/TSK_S82_E070S.png",
+				Triggers:      []string{},
+				Traits:        []string{"Demon Continent", "Slime"},
+				Abilities: []string{
+					"【AUTO】 When this card is placed on the stage from your hand, reveal the top card of your deck. If that card is a 《Demon Continent》 character, this card gets +1 level and +1500 power until end of turn. (Return the revealed card to its original place)",
+					"【AUTO】 When this card's battle opponent becomes 【REVERSE】, choose 1 of your other 《Demon Continent》 characters, 【REST】 it, and move it to an open position of your back stage.",
+				},
+				Version: CardModelVersion,
+			},
+		},
+	}
+
+	for _, tc := range testcases {
+		doc, err := goquery.NewDocumentFromReader(strings.NewReader(tc.html))
+		if err != nil {
+			t.Error(err)
+			continue
+		}
+
+		card := extractData(siteConfigs[tc.lang], doc.Clone())
+		assertCardEqualsWithTitle(t, tc.name, card, tc.expectedCard)
 	}
 }

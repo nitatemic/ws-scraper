@@ -17,9 +17,11 @@ package fetch
 import (
 	"bytes"
 	"fmt"
+	"html"
 	"log"
 	"net/url"
 	"path"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -82,6 +84,12 @@ type Card struct {
 
 // CardModelVersion : Card format version
 const CardModelVersion = "1"
+
+var (
+	standardCardSuffixRE = regexp.MustCompile(`(?P<setID>[a-zA-Z0-9]+)/(?P<release>[a-zA-Z0-9-]+)-(?P<id>[a-zA-Z0-9]+\+?)$`)
+
+	standardReleaseRE = regexp.MustCompile(`(?P<code>[a-zA-Z-]+)(?P<packID>[0-9]+)`)
+)
 
 var suffix = []string{
 	"SP",
@@ -148,17 +156,10 @@ func extractDataEn(config siteConfig, mainHTML *goquery.Selection) Card {
 		}
 	}()
 
+	cardNumber = sanitizeCardNumber(cardNumber)
 	log.Println("Start card:", cardNumber)
 
-	var set string
-	var setInfo []string
-	if strings.Contains(cardNumber, "/") {
-		set = strings.Split(cardNumber, "/")[0]
-		setInfo = strings.Split(strings.Split(cardNumber, "/")[1], "-")
-	} else {
-		// TODO: deal with "BSF2024-03 PR" and similar cards
-		log.Println("Can't get set info from:", cardNumber)
-	}
+	setID, release, releasePackID, cardID := parseCardNumber(cardNumber)
 
 	cardName := mainHTML.Find(".ttl").Last().Text()
 	imageCardURL, _ := mainHTML.Find("div.image img").Attr("src")
@@ -234,11 +235,14 @@ func extractDataEn(config siteConfig, mainHTML *goquery.Selection) Card {
 
 	card := Card{
 		CardNumber: cardNumber,
-		SetID:      set,
+		SetID:      setID,
 		// TODO: Figure out how to get EN set name. It's no longer on the card details page
 		// SetName:     setName,
 		ExpansionName: info["expansion"],
 		Side:          info["side"],
+		Release:       release,
+		ReleasePackID: releasePackID,
+		ID:            cardID,
 		Language:      "EN",
 		Type:          info["type"],
 		Name:          cardName,
@@ -263,10 +267,6 @@ func extractDataEn(config siteConfig, mainHTML *goquery.Selection) Card {
 	if info["trigger"] != "" {
 		card.Triggers = strings.Split(info["trigger"], " ")
 	}
-	if len(setInfo) > 1 {
-		card.Release = setInfo[0]
-		card.ID = setInfo[1]
-	}
 	if card.Type == "CH" {
 		card.Soul = info["soul"]
 	}
@@ -280,16 +280,12 @@ func extractDataJp(config siteConfig, mainHTML *goquery.Selection) Card {
 			log.Printf("Panic for %v. Error=%v", titleSpan, err)
 		}
 	}()
+
+	cardNumber := sanitizeCardNumber(titleSpan)
 	log.Println("Start card:", titleSpan)
-	var set string
-	var setInfo []string
-	if strings.Contains(titleSpan, "/") {
-		set = strings.Split(titleSpan, "/")[0]
-		setInfo = strings.Split(strings.Split(titleSpan, "/")[1], "-")
-	} else {
-		// TODO: deal with "BSF2024-03 PR" and similar cards
-		log.Println("Can't get set info from:", titleSpan)
-	}
+
+	setID, release, releasePackID, cardID := parseCardNumber(cardNumber)
+
 	setName := strings.TrimSpace(strings.Split(mainHTML.Find("h4").Text(), ") -")[1])
 	imageCardURL, _ := mainHTML.Find("a img").Attr("src")
 
@@ -373,21 +369,24 @@ func extractDataJp(config siteConfig, mainHTML *goquery.Selection) Card {
 	})
 
 	card := Card{
-		CardNumber: titleSpan,
-		SetID:      set,
-		SetName:    setName,
-		Side:       infos["side"],
-		Language:   "JP",
-		Type:       infos["type"],
-		Name:       strings.TrimSpace(mainHTML.Find("h4 span").First().Text()),
-		Level:      filterDash(infos["level"]),
-		FlavorText: infos["flavourText"],
-		Color:      infos["color"],
-		Power:      filterDash(infos["power"]),
-		Cost:       filterDash(infos["cost"]),
-		Rarity:     infos["rarity"],
-		Abilities:  ability,
-		Version:    CardModelVersion,
+		CardNumber:    titleSpan,
+		SetID:         setID,
+		SetName:       setName,
+		Side:          infos["side"],
+		Release:       release,
+		ReleasePackID: releasePackID,
+		ID:            cardID,
+		Language:      "JP",
+		Type:          infos["type"],
+		Name:          strings.TrimSpace(mainHTML.Find("h4 span").First().Text()),
+		Level:         filterDash(infos["level"]),
+		FlavorText:    infos["flavourText"],
+		Color:         infos["color"],
+		Power:         filterDash(infos["power"]),
+		Cost:          filterDash(infos["cost"]),
+		Rarity:        infos["rarity"],
+		Abilities:     ability,
+		Version:       CardModelVersion,
 	}
 	if fullURL, err := url.JoinPath(config.baseURL, imageCardURL); err == nil {
 		card.ImageURL = fullURL
@@ -400,10 +399,6 @@ func extractDataJp(config siteConfig, mainHTML *goquery.Selection) Card {
 	}
 	if infos["trigger"] != "" {
 		card.Triggers = strings.Split(infos["trigger"], " ")
-	}
-	if len(setInfo) > 1 {
-		card.Release = setInfo[0]
-		card.ID = setInfo[1]
 	}
 	if card.Type == "CH" {
 		card.Soul = infos["soul"]
@@ -431,9 +426,58 @@ func extractAbilities(abilityNode *goquery.Selection) ([]string, error) {
 		if line == "" {
 			continue
 		}
-		ability = append(ability, line)
+		ability = append(ability, html.UnescapeString(line))
 	}
 	return ability, err
+}
+
+func sanitizeCardNumber(cn string) string {
+	// The website sometimes shows "%2B" instead of + for some cards (eg. SSP+ rarity).
+	cn = strings.ReplaceAll(cn, "%2B", "+")
+
+	// The website sometimes puts a + in the displayed card number (eg. RWBY/BRO2021-01+PR) even though it shouldn't be there.
+	plusCnt := strings.Count(cn, "+")
+	if plusCnt > 0 {
+		repCnt := plusCnt
+		if strings.LastIndex(cn, "+") == len(cn)-1 {
+			repCnt--
+		}
+		cn = strings.Replace(cn, "+", " ", repCnt)
+	}
+	return cn
+}
+
+func parseCardNumber(cn string) (setID, release, releasePackID, id string) {
+	if matches := standardCardSuffixRE.FindStringSubmatch(cn); matches != nil {
+		setID = matches[1]
+		release = matches[2]
+		id = matches[3]
+		if relMatches := standardReleaseRE.FindStringSubmatch(release); relMatches != nil {
+			releasePackID = relMatches[2]
+			return
+		}
+		releasePackID = ""
+		return
+	}
+
+	if strings.Contains(cn, "/") {
+		setID = strings.Split(cn, "/")[0]
+		setInfo := strings.Split(strings.Split(cn, "/")[1], "-")
+		if len(setInfo) > 1 {
+			release = setInfo[0]
+			id = setInfo[1]
+
+			if relMatches := standardReleaseRE.FindStringSubmatch(release); relMatches != nil {
+				releasePackID = relMatches[2]
+				return
+			}
+			releasePackID = ""
+		}
+		return
+	} else {
+		log.Println("Can't get set info from:", cn)
+	}
+	return
 }
 
 // IsbaseRarity check if a card is a C / U / R / RR
