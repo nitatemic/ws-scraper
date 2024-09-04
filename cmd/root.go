@@ -33,8 +33,8 @@ var (
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	Use:   "wsoffcli",
-	Short: "Collect data from https://ws-tcg.com/",
-	Long: `Collect data from https://ws-tcg.com/.
+	Short: "Collect data from https://ws-tcg.com/ and https://en.ws-tcg.com/.",
+	Long: `Collect data from https://ws-tcg.com/ and https://en.ws-tcg.com/.
 
 Create a json file for each card with most information.
 
@@ -43,7 +43,13 @@ Example:
 
 If you want more than one use '##' as seperator like 'wsoffcli fetch -n BD##IM'
 
-'--expansion' use a hidden number in the official site, this number is increment for each new expansion (e.g Kadokawa is number 259, Goblin 260 in JP ...).
+'--expansion' uses a number in the official site that is unique for each expansion. '--title' uses a number in the official site that is unique for each title. Title and expansion numbers are distinct values and different between the English and Japanese sites. For example:
+  English:
+    Title 159 is "Tokyo Revengers"
+    Expansion 159 is "BanG Dream! Girls Band Party Premium Booster"
+  Japanese:
+    Title numbers aren't supported
+    Expansion 159 is "Monogatari Series: Second Season"
 
 To use environ variable, use the prefix 'WSOFF'.
 	 `,
