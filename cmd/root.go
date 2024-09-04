@@ -26,49 +26,15 @@ import (
 var (
 	cfgFile     string
 	serieNumber string
+	titleNumber string
 	neo         string
-	allRarity   bool
 )
-
-// Baseurl base url
-const Baseurl = "https://ws-tcg.com/cardlist/search"
-
-// Card info to export
-type Card struct {
-	Set               string   `json:"set"`
-	SetName           string   `json:"setName"`
-	Side              string   `json:"side"`
-	Release           string   `json:"release"`
-	ID                string   `json:"id"`
-	Name              string   `json:"name"`
-	JpName            string   `json:"jpName"`
-	CardType          string   `json:"cardType"`
-	Colour            string   `json:"colour"`
-	Level             string   `json:"level"`
-	Cost              string   `json:"cost"`
-	Power             string   `json:"power"`
-	Soul              string   `json:"soul"`
-	Rarity            string   `json:"rarity"`
-	BreakDeckbuilding bool     `json:"breakDeckbuilding"`
-	ENEquivalent      bool     `json:"EN_Equivalent"`
-	FlavourText       string   `json:"flavourText"`
-	Trigger           []string `json:"trigger"`
-	Ability           []string `json:"ability"`
-	SpecialAttrib     []string `json:"specialAttrib"`
-	Version           string   `json:"version"`
-	Cardcode          string   `json:"cardcode"`
-	ImageURL          string   `json:"imageURL"`
-	Tags              []string `json:"tags"`
-}
-
-// CardModelVersion : Card format version
-const CardModelVersion = "3"
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	Use:   "wsoffcli",
-	Short: "Collect data from https://ws-tcg.com/",
-	Long: `Collect data from https://ws-tcg.com/.
+	Short: "Collect data from https://ws-tcg.com/ and https://en.ws-tcg.com/.",
+	Long: `Collect data from https://ws-tcg.com/ and https://en.ws-tcg.com/.
 
 Create a json file for each card with most information.
 
@@ -77,7 +43,13 @@ Example:
 
 If you want more than one use '##' as seperator like 'wsoffcli fetch -n BD##IM'
 
-'--serie' use a hidden number in the official site, this number is increment for each new set (e.g Kadokawa is number 259, Goblin 260 ...).
+'--expansion' uses a number in the official site that is unique for each expansion. '--title' uses a number in the official site that is unique for each title. Title and expansion numbers are distinct values and different between the English and Japanese sites. For example:
+  English:
+    Title 159 is "Tokyo Revengers"
+    Expansion 159 is "BanG Dream! Girls Band Party Premium Booster"
+  Japanese:
+    Title numbers aren't supported
+    Expansion 159 is "Monogatari Series: Second Season"
 
 To use environ variable, use the prefix 'WSOFF'.
 	 `,
@@ -102,7 +74,8 @@ func init() {
 	// Here you will define your flags and configuration settings.
 	// Cobra supports persistent flags, which, if defined here,
 	// will be global for your application.
-	rootCmd.PersistentFlags().StringVarP(&serieNumber, "serie", "s", "", "serie number")
+	rootCmd.PersistentFlags().StringVarP(&serieNumber, "expansion", "", "", "expansion number")
+	rootCmd.PersistentFlags().StringVarP(&titleNumber, "title", "t", "", "title number")
 	rootCmd.PersistentFlags().StringVarP(&neo, "neo", "n", "", "Neo standar by set")
 }
 
