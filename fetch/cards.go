@@ -32,7 +32,11 @@ import (
 	"github.com/PuerkitoBio/goquery"
 )
 
-const maxWorker int = 5
+// The maximum number of workers at each stage that can do tasks locally
+// (that don't have to interact with the websites).
+const maxLocalWorker int = 10
+// The maximum number of workers at each stage that have to interact with the websites.
+const maxScrapeWorker int = 5
 
 type SiteLanguage string
 
@@ -451,7 +455,7 @@ func CardsStream(cfg Config, cardCh chan<- Card) error {
 		lastPage := st.getLastPage()
 		loopNum += lastPage
 		st.pageURLCh = make(chan string, lastPage)
-		st.pageRespCh = make(chan *http.Response, maxWorker)
+		st.pageRespCh = make(chan *http.Response, maxScrapeWorker)
 		st.wgPageScan = &sync.WaitGroup{}
 		st.wgPageScan.Add(lastPage)
 	}
@@ -459,8 +463,8 @@ func CardsStream(cfg Config, cardCh chan<- Card) error {
 	log.Printf("Number of loop %v\n", loopNum)
 
 	var wgScanner, wgCardSel sync.WaitGroup
-	cardSelCh := make(chan *goquery.Selection)
-	for i := 0; i < maxWorker; i++ {
+	cardSelCh := make(chan *goquery.Selection, maxLocalWorker)
+	for i := 0; i < maxLocalWorker; i++ {
 		go extractWorker(siteCfg, &wgCardSel, cardSelCh, cardCh)
 	}
 	for _, st := range scrapeTasks {
@@ -473,7 +477,7 @@ func CardsStream(cfg Config, cardCh chan<- Card) error {
 			close(s.pageRespCh)
 			wgScanner.Done()
 		}(st)
-		for i := 0; i < maxWorker; i++ {
+		for i := 0; i < maxScrapeWorker; i++ {
 			go pageFetchWorker(i, st)
 			go pageScanWorker(i, st, &wgCardSel, cardSelCh)
 		}
@@ -502,7 +506,7 @@ func CardsStream(cfg Config, cardCh chan<- Card) error {
 }
 
 func aggregate(cfg Config, r reducer) error {
-	cardCh := make(chan Card, maxWorker)
+	cardCh := make(chan Card, maxScrapeWorker)
 
 	var wg sync.WaitGroup
 	wg.Add(1)
