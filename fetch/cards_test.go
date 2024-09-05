@@ -42,7 +42,7 @@ func TestRecentSwitch_en(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	recentTasks := getTasksForRecentReleases(siteConfigs[EN], doc)
+	recentTasks := getTasksForRecentReleases(siteConfigs[En], doc)
 	if len(recentTasks) != len(expectedExpansion) {
 		t.Errorf("Didn't get enough tasks. Got %d, want %d", len(recentTasks), len(expectedExpansion))
 	}
@@ -76,7 +76,7 @@ func TestRecentSwitch_jp(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	recentTasks := getTasksForRecentReleases(siteConfigs[JP], doc)
+	recentTasks := getTasksForRecentReleases(siteConfigs[Jp], doc)
 	if len(recentTasks) != 8 {
 		t.Errorf("Should be equal to 8: %v", recentTasks)
 	}

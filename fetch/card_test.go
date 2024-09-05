@@ -141,7 +141,7 @@ func TestExtractData_jp(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	card := extractData(siteConfigs[JP], doc.Clone())
+	card := extractData(siteConfigs[Jp], doc.Clone())
 	if card.Name != "“私達、参上っ！”上原ひまり" {
 		t.Errorf("got %v: expected “私達、参上っ！”上原ひまり", card.Name)
 	}
@@ -219,7 +219,7 @@ func TestExtractDataEvent_jp(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	card := extractData(siteConfigs[JP], doc.Clone())
+	card := extractData(siteConfigs[Jp], doc.Clone())
 	if card.Name != "ミッシェルからの伝言" {
 		t.Errorf("got %v: expected ミッシェルからの伝言", card.Name)
 	}
@@ -275,7 +275,7 @@ func TestExtractDataCX_jp(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	card := extractData(siteConfigs[JP], doc.Clone())
+	card := extractData(siteConfigs[Jp], doc.Clone())
 
 	expectedCard := Card{
 		Name:          "キラキラのお日様",
@@ -382,7 +382,7 @@ func TestExtractData_en(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	card := extractData(siteConfigs[EN], doc.Clone())
+	card := extractData(siteConfigs[En], doc.Clone())
 	expectedCard := Card{
 		Name:          "EGOISTIC, Sakura",
 		ExpansionName: "PR Card 【Schwarz Side】",
@@ -513,7 +513,7 @@ func TestExtractData_en_multiIconAbility(t *testing.T) {
 		Version: CardModelVersion,
 	}
 
-	card := extractData(siteConfigs[EN], doc.Clone())
+	card := extractData(siteConfigs[En], doc.Clone())
 	assertCardEquals(t, card, expectedCard)
 }
 
@@ -594,7 +594,7 @@ func TestExtractDataEvent_en(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	card := extractData(siteConfigs[EN], doc.Clone())
+	card := extractData(siteConfigs[En], doc.Clone())
 
 	if card.Type != "EV" {
 		t.Errorf("got %v: expected EV", card.Type)
@@ -706,7 +706,7 @@ func TestExtractDataCX_en(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	card := extractData(siteConfigs[EN], doc.Clone())
+	card := extractData(siteConfigs[En], doc.Clone())
 
 	if card.Type != "CX" {
 		t.Errorf("got %v: expected CX", card.Type)
@@ -822,7 +822,7 @@ func TestExtractData_en_specialCardNumbers(t *testing.T) {
           </div>
         </div>
       </div>`,
-			EN,
+			En,
 			Card{
 				CardNumber:    "BD/EN-W03-004",
 				SetID:         "BD",
@@ -920,7 +920,7 @@ func TestExtractData_en_specialCardNumbers(t *testing.T) {
           </div>
         </div>
       </div>`,
-			EN,
+			En,
 			Card{
 				CardNumber:    "WS/TCPR-P01",
 				SetID:         "WS",
@@ -1017,7 +1017,7 @@ func TestExtractData_en_specialCardNumbers(t *testing.T) {
           </div>
         </div>
       </div>`,
-			EN,
+			En,
 			Card{
 				// The website puts the card number as "RWBY/BRO2021-01+PR",
 				// but it's actually "RWBY/BRO2021-01 PR".
@@ -1117,7 +1117,7 @@ func TestExtractData_en_specialCardNumbers(t *testing.T) {
           </div>
         </div>
       </div>`,
-			EN,
+			En,
 			Card{
 				CardNumber:    "BFR/BSL2021-03S",
 				SetID:         "BFR",
@@ -1215,7 +1215,7 @@ func TestExtractData_en_specialCardNumbers(t *testing.T) {
           </div>
         </div>
       </div>`,
-			EN,
+			En,
 			Card{
 				CardNumber:    "TSK/S82-E070SSP+",
 				SetID:         "TSK",

@@ -37,8 +37,8 @@ const maxWorker int = 5
 type SiteLanguage string
 
 const (
-	EN SiteLanguage = "EN"
-	JP SiteLanguage = "JP"
+	En SiteLanguage = "EN"
+	Jp SiteLanguage = "JP"
 )
 
 type siteConfig struct {
@@ -54,7 +54,7 @@ type siteConfig struct {
 }
 
 var siteConfigs = map[SiteLanguage]siteConfig{
-	EN: {
+	En: {
 		baseURL:       "https://en.ws-tcg.com/",
 		cardListURL:   "https://en.ws-tcg.com/cardlist/list/",
 		cardSearchURL: "https://en.ws-tcg.com/cardlist/searchresults/",
@@ -136,7 +136,7 @@ var siteConfigs = map[SiteLanguage]siteConfig{
 		},
 		supportTitleNumber: true,
 	},
-	JP: {
+	Jp: {
 		baseURL:       "https://ws-tcg.com/",
 		cardListURL:   "https://ws-tcg.com/cardlist/",
 		cardSearchURL: "https://ws-tcg.com/cardlist/search",
@@ -386,11 +386,11 @@ func CardsStream(cfg Config, cardCh chan<- Card) error {
 	}
 	if cfg.ExpansionNumber != 0 {
 		switch cfg.Language {
-		case EN:
+		case En:
 			// "expansion" also works, but the website uses "expansion_name", so use "expansion" to
 			// stay in line with the website
 			urlValues.Add("expansion_name", strconv.Itoa(cfg.ExpansionNumber))
-		case JP:
+		case Jp:
 			urlValues.Add("expansion", strconv.Itoa(cfg.ExpansionNumber))
 		}
 	}
@@ -409,10 +409,10 @@ func CardsStream(cfg Config, cardCh chan<- Card) error {
 	}
 	if len(cfg.SetCode) > 0 {
 		switch cfg.Language {
-		case EN:
+		case En:
 			urlValues.Add("keyword_or", strings.Join(cfg.SetCode, " "))
 			urlValues.Add("keyword_type[]", "no")
-		case JP:
+		case Jp:
 			urlValues.Add("title_number", fmt.Sprintf("##%s##", strings.Join(cfg.SetCode, "##")))
 		}
 	}

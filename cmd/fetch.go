@@ -89,9 +89,9 @@ Use global switches to specify the set, by default it will fetch all sets.`,
 		lang := viper.GetString("lang")
 		switch lang {
 		case "EN":
-			cfg.Language = fetch.EN
+			cfg.Language = fetch.En
 		case "JP":
-			cfg.Language = fetch.JP
+			cfg.Language = fetch.Jp
 		default:
 			log.Fatalf("Unsupported language: %q\n", lang)
 		}
