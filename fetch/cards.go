@@ -47,7 +47,7 @@ type siteConfig struct {
 	cardSearchURL              string
 	languageCode               string
 	lastPageFunc               func(doc *goquery.Document) int
-	pageScanParseFunc          func(task *scrapeTask, wgCardSel *sync.WaitGroup, cardSelCh chan<- *goquery.Selection, resp *http.Response)
+	pageScanParseFunc          func(task *scrapeTask, wgCardSel *sync.WaitGroup, cardSelCh chan<- *goquery.Selection, resp *http.Response) (pageDone bool)
 	recentReleaseDistinguisher string
 	recentRelaseExpansionFunc  func(page *goquery.Selection) *url.Values
 	supportTitleNumber         bool
@@ -70,12 +70,12 @@ var siteConfigs = map[SiteLanguage]siteConfig{
 			// TODO: figure out a better way to get the total number of pages
 			return (numCards-1)/15 + 1
 		},
-		pageScanParseFunc: func(task *scrapeTask, wgCardSel *sync.WaitGroup, cardSelCh chan<- *goquery.Selection, resp *http.Response) {
+		pageScanParseFunc: func(task *scrapeTask, wgCardSel *sync.WaitGroup, cardSelCh chan<- *goquery.Selection, resp *http.Response) (pageDone bool) {
 			doc, err := goquery.NewDocumentFromReader(resp.Body)
 			if err != nil {
 				task.pageURLCh <- resp.Request.URL.String()
 				log.Println("goquery error: ", err, "for page: ", resp.Request.URL)
-				return
+				return false
 			}
 			resultList := doc.Find(".p_cards__results-box ul li")
 
@@ -115,6 +115,8 @@ var siteConfigs = map[SiteLanguage]siteConfig{
 					}
 				})
 			}
+
+			return true
 		},
 		recentReleaseDistinguisher: "div.p-cards__latest-products ul.c-product__list a",
 		recentRelaseExpansionFunc: func(sel *goquery.Selection) *url.Values {
@@ -149,12 +151,12 @@ var siteConfigs = map[SiteLanguage]siteConfig{
 			}
 			return last
 		},
-		pageScanParseFunc: func(task *scrapeTask, wgCardSel *sync.WaitGroup, cardSelCh chan<- *goquery.Selection, resp *http.Response) {
+		pageScanParseFunc: func(task *scrapeTask, wgCardSel *sync.WaitGroup, cardSelCh chan<- *goquery.Selection, resp *http.Response) (pageDone bool) {
 			doc, err := goquery.NewDocumentFromReader(resp.Body)
 			if err != nil {
 				task.pageURLCh <- resp.Request.URL.String()
 				log.Println("goquery error: ", err, "for page: ", resp.Request.URL)
-				return
+				return false
 			}
 			resultTable := doc.Find(".search-result-table tr")
 
@@ -167,6 +169,8 @@ var siteConfigs = map[SiteLanguage]siteConfig{
 					cardSelCh <- s
 				})
 			}
+
+			return true
 		},
 		recentReleaseDistinguisher: "div.system > ul.expansion-list a[onclick]",
 		recentRelaseExpansionFunc: func(sel *goquery.Selection) *url.Values {
@@ -278,8 +282,9 @@ func pageScanWorker(
 ) {
 	for resp := range task.pageRespCh {
 		log.Printf("Start page: %v", resp.Request.URL)
-		task.siteConfig.pageScanParseFunc(task, wgCardSel, cardSelCh, resp)
-		task.wgPageScan.Done()
+		if task.siteConfig.pageScanParseFunc(task, wgCardSel, cardSelCh, resp) {
+			task.wgPageScan.Done()
+		}
 		log.Printf("Finish page: %v", resp.Request.URL)
 	}
 	log.Println("Page scan worker", id, "done")
