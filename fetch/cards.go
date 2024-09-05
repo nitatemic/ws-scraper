@@ -100,7 +100,11 @@ var siteConfigs = map[SiteLanguage]siteConfig{
 					proxy.Client.Jar = task.cookieJar
 					detailedPageResp, err := proxy.Client.Get(fullPath)
 					if err != nil || detailedPageResp.StatusCode != http.StatusOK {
-						log.Printf("Failed to get detailed page from %q: %v\n", fullPath, err)
+						var sc string
+						if detailedPageResp != nil {
+							sc = fmt.Sprintf(" (statusCode=%d)", detailedPageResp.StatusCode)
+						}
+						log.Printf("Failed to get detailed page from %q%s: %v\n", fullPath, sc, err)
 					} else {
 						proxy.Readd()
 						doc, err := goquery.NewDocumentFromReader(detailedPageResp.Body)
