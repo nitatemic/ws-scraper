@@ -2,7 +2,7 @@ package fetch
 
 import (
 	"fmt"
-	"log"
+	"log/slog"
 	"strings"
 	"testing"
 
@@ -11,13 +11,13 @@ import (
 
 func equalSlice(sliceA []string, sliceB []string) bool {
 	if len(sliceA) != len(sliceB) {
-		log.Printf("wrong len sliceA %v, len sliceB %v", len(sliceA), len(sliceB))
+		slog.Error(fmt.Sprintf("wrong len sliceA %v, len sliceB %v", len(sliceA), len(sliceB)))
 		return false
 	}
 
 	for i := range sliceA {
 		if sliceA[i] != sliceB[i] {
-			log.Printf("wrong value sliceA %v, len sliceB %v", sliceA[i], sliceB[i])
+			slog.Error(fmt.Sprintf("wrong value sliceA %v, len sliceB %v", sliceA[i], sliceB[i]))
 			return false
 		}
 	}

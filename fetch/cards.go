@@ -17,7 +17,7 @@ package fetch
 
 import (
 	"fmt"
-	"log"
+	"log/slog"
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
@@ -74,7 +74,7 @@ var siteConfigs = map[SiteLanguage]siteConfig{
 			numCardsS := doc.Find(".c-search__results-item span").First().Text()
 			numCards, err := strconv.Atoi(numCardsS)
 			if err != nil {
-				log.Fatalf("Couldn't get num cards: %v\n", err)
+				slog.Error(fmt.Sprintf("Couldn't get num cards: %v", err))
 				return 1
 			}
 			// As of 2024-9-3, there are 15 cards per "page".
@@ -85,24 +85,24 @@ var siteConfigs = map[SiteLanguage]siteConfig{
 			doc, err := goquery.NewDocumentFromReader(resp.Body)
 			if err != nil {
 				task.pageURLCh <- resp.Request.URL.String()
-				log.Println("goquery error: ", err, "for page: ", resp.Request.URL)
+				slog.With("url", resp.Request.URL).Error(fmt.Sprintf("goquery error: %v", err))
 				return false
 			}
 			resultList := doc.Find(".p_cards__results-box ul li")
 
 			if resultList.Length() == 0 && resp.StatusCode == http.StatusOK {
-				log.Println("No cards on response page")
+				slog.With("url", resp.Request.URL).Warn("No cards on response page")
 			} else {
-				log.Println("Found cards !!", resp.Request.URL)
+				slog.With("url", resp.Request.URL).Debug("Found cards!")
 				resultList.Each(func(i int, s *goquery.Selection) {
 					subPath, exists := s.Find("a").First().Attr("href")
 					if !exists {
-						log.Printf("Error getting sub path: %v\n", err)
+						slog.With("url", resp.Request.URL).Error(fmt.Sprintf("Error getting sub path: %v", err))
 						return
 					}
 					fp, err := joinPath(task.siteConfig.baseURL, subPath)
 					if err != nil {
-						log.Printf("Error getting full path: %v\n", err)
+						slog.With("url", resp.Request.URL).Error(fmt.Sprintf("Error getting full path: %v", err))
 						return
 					}
 					fullPath := fp.String()
@@ -115,13 +115,13 @@ var siteConfigs = map[SiteLanguage]siteConfig{
 						if detailedPageResp != nil {
 							sc = fmt.Sprintf(" (statusCode=%d)", detailedPageResp.StatusCode)
 						}
-						log.Printf("Failed to get detailed page from %q%s: %v\n", fullPath, sc, err)
+						slog.With("url", fullPath).Error(fmt.Sprintf("Failed to get detailed page %s", sc), "error", err)
 					} else {
 						proxy.Readd()
 						doc, err := goquery.NewDocumentFromReader(detailedPageResp.Body)
 						if err != nil {
 							task.pageURLCh <- detailedPageResp.Request.URL.String()
-							log.Println("goquery error: ", err, "for page: ", detailedPageResp.Request.URL)
+							slog.With("url", detailedPageResp.Request.URL).Error(fmt.Sprintf("goquery error: %v", err))
 							return
 						}
 						cardDetails := doc.Find(".p-cards__detail-wrapper")
@@ -174,15 +174,15 @@ var siteConfigs = map[SiteLanguage]siteConfig{
 			doc, err := goquery.NewDocumentFromReader(resp.Body)
 			if err != nil {
 				task.pageURLCh <- resp.Request.URL.String()
-				log.Println("goquery error: ", err, "for page: ", resp.Request.URL)
+				slog.With("url", resp.Request.URL).Error(fmt.Sprintf("goquery error: %v", err))
 				return false
 			}
 			resultTable := doc.Find(".search-result-table tr")
 
 			if resultTable.Length() == 0 && resp.StatusCode == http.StatusOK {
-				log.Println("No cards on response page")
+				slog.With("url", resp.Request.URL).Warn("No cards on response page")
 			} else {
-				log.Println("Found cards !!", resp.Request.URL)
+				slog.With("url", resp.Request.URL).Debug("Found cards!")
 				resultTable.Each(func(i int, s *goquery.Selection) {
 					wgCardSel.Add(1)
 					cardSelCh <- s
@@ -231,23 +231,23 @@ type scrapeTask struct {
 	wgPageScan *sync.WaitGroup
 }
 
-func (s *scrapeTask) getLastPage() int {
-	log.Println(s.siteConfig.cardSearchURL, s.urlValues)
+func (s *scrapeTask) getLastPage() (int, error) {
+	slog.Info(fmt.Sprintf("Getting last page of %q with %v", s.siteConfig.cardSearchURL, s.urlValues))
 	resp, err := http.PostForm(fmt.Sprintf("%v?page=%d", s.siteConfig.cardSearchURL, 1), s.urlValues)
 	if err != nil {
-		log.Fatalf("Error on getting last page: %v\n", err)
+		return 0, fmt.Errorf("error getting last page: %v", err)
 	}
 
 	doc, err := goquery.NewDocumentFromReader(resp.Body)
 	if err != nil {
-		log.Fatalf("Error on getting last page parse: %v\n", err)
+		return 0, fmt.Errorf("error parsing last page: %v", err)
 	}
 
 	last := s.siteConfig.lastPageFunc(doc)
 
-	log.Println("Last page is", last, " for :", s.urlValues)
+	slog.With("url", resp.Request.URL).Info(fmt.Sprintf("Last page is %d for %v", last, s.urlValues))
 	s.lastPage = last
-	return last
+	return last, nil
 }
 
 func getTasksForRecentReleases(siteCfg siteConfig, doc *goquery.Document) []scrapeTask {
@@ -276,14 +276,14 @@ func joinPath(baseURL, subPath string) (*url.URL, error) {
 
 func pageFetchWorker(id int, task *scrapeTask) {
 	for link := range task.pageURLCh {
-		log.Println("ID :", id, "Fetch page : ", link, "with params : ", task.urlValues)
+		slog.Debug(fmt.Sprintf("ID %d: fetching page %q with params %v", id, link, task.urlValues))
 		proxy := biri.GetClient()
-		log.Println("Got proxy")
+		slog.Debug("Got proxy")
 		proxy.Client.Jar = task.cookieJar
 
 		resp, err := proxy.Client.PostForm(link, task.urlValues)
 		if err != nil || resp.StatusCode != http.StatusOK {
-			log.Println("Ban proxy:", err)
+			slog.With("url", link).Info("Ban proxy", "error", err)
 			proxy.Ban()
 			// Retry again later
 			task.pageURLCh <- link
@@ -292,7 +292,7 @@ func pageFetchWorker(id int, task *scrapeTask) {
 			task.pageRespCh <- resp
 		}
 	}
-	log.Println("Page fetch worker", id, "done")
+	slog.Info(fmt.Sprintf("Page fetch worker %d done", id))
 }
 
 func pageScanWorker(
@@ -302,13 +302,13 @@ func pageScanWorker(
 	cardSelCh chan<- *goquery.Selection,
 ) {
 	for resp := range task.pageRespCh {
-		log.Printf("Start page: %v", resp.Request.URL)
+		slog.Debug(fmt.Sprintf("Start scanning page: %v", resp.Request.URL))
 		if task.siteConfig.pageScanParseFunc(task, wgCardSel, cardSelCh, resp) {
 			task.wgPageScan.Done()
 		}
-		log.Printf("Finish page: %v", resp.Request.URL)
+		slog.Debug(fmt.Sprintf("Finish scanning page: %v", resp.Request.URL))
 	}
-	log.Println("Page scan worker", id, "done")
+	slog.Info(fmt.Sprintf("Page scan worker %d done", id))
 }
 
 func extractWorker(siteCfg siteConfig, wgCardSel *sync.WaitGroup, cardSelChan <-chan *goquery.Selection, cardCh chan<- Card) {
@@ -383,20 +383,18 @@ type Config struct {
 func CardsStream(cfg Config, cardCh chan<- Card) error {
 	var siteCfg siteConfig
 	if c, ok := siteConfigs[cfg.Language]; !ok {
-		log.Fatalf("Unsupported language: %q\n", cfg.Language)
+		return fmt.Errorf("unsupported language: %q", cfg.Language)
 	} else {
 		siteCfg = c
-		log.Printf("Fetching %s cards\n", cfg.Language)
+		slog.Info(fmt.Sprintf("Fetching %s cards", cfg.Language))
 	}
 
-	log.Println("Streaming cards with config:", cfg)
+	slog.Info("Streaming cards", "config", cfg)
 
 	prepareBiri(siteCfg)
 	jar, err := cookiejar.New(&cookiejar.Options{PublicSuffixList: publicsuffix.List})
 	if err != nil {
-		err = fmt.Errorf("failed to get new cookiejar: %v", err)
-		log.Fatal(err)
-		return err
+		return fmt.Errorf("failed to get new cookiejar: %v", err)
 	}
 
 	biri.ProxyStart()
@@ -414,9 +412,7 @@ func CardsStream(cfg Config, cardCh chan<- Card) error {
 	}
 	if cfg.TitleNumber != 0 {
 		if !siteCfg.supportTitleNumber {
-			err := fmt.Errorf("can't use title number on %s site", cfg.Language)
-			log.Fatalln(err)
-			return err
+			return fmt.Errorf("can't use title number on %s site", cfg.Language)
 		}
 		urlValues.Add("title", strconv.Itoa(cfg.TitleNumber))
 	}
@@ -444,16 +440,16 @@ func CardsStream(cfg Config, cardCh chan<- Card) error {
 	if cfg.GetRecent {
 		resp, err := http.Get(siteCfg.cardListURL)
 		if err != nil {
-			log.Fatal("Error on get recent")
+			return fmt.Errorf("error getting recent: %v", err)
 		}
 		doc, err := goquery.NewDocumentFromReader(resp.Body)
 		if err != nil {
-			log.Fatal("Error on parse recent")
+			return fmt.Errorf("error parsing recent: %v", err)
 		}
 		for _, recent := range getTasksForRecentReleases(siteCfg, doc) {
 			copyTask := defaultScrapeTask
 			copyTask.urlValues = recent.urlValues
-			log.Println(defaultScrapeTask, recent)
+			slog.Debug(fmt.Sprintf("default scrape task=%v, recent=%v", defaultScrapeTask, recent))
 			scrapeTasks = append(scrapeTasks, &copyTask)
 		}
 	} else {
@@ -462,7 +458,10 @@ func CardsStream(cfg Config, cardCh chan<- Card) error {
 
 	loopNum := 0
 	for _, st := range scrapeTasks {
-		lastPage := st.getLastPage()
+		lastPage, err := st.getLastPage()
+		if err != nil {
+			return err
+		}
 		loopNum += lastPage
 		st.pageURLCh = make(chan string, lastPage)
 		st.pageRespCh = make(chan *http.Response, maxScrapeWorker)
@@ -470,7 +469,7 @@ func CardsStream(cfg Config, cardCh chan<- Card) error {
 		st.wgPageScan.Add(lastPage)
 	}
 
-	log.Printf("Number of loop %v\n", loopNum)
+	slog.Debug(fmt.Sprintf("Number of loop %v", loopNum))
 
 	var wgScanner, wgCardSel sync.WaitGroup
 	cardSelCh := make(chan *goquery.Selection, maxLocalWorker)
@@ -554,24 +553,24 @@ func Boosters(cfg Config) (map[string]Booster, error) {
 func ExpansionList(cfg Config) (map[int]string, error) {
 	var siteCfg siteConfig
 	if c, ok := siteConfigs[cfg.Language]; !ok {
-		log.Fatalf("Unsupported language: %q\n", cfg.Language)
+		return nil, fmt.Errorf("unsupported language: %q", cfg.Language)
 	} else {
 		siteCfg = c
-		log.Printf("Fetching %s expansion list\n", cfg.Language)
+		slog.Info(fmt.Sprintf("Fetching %s expansion list", cfg.Language))
 	}
 
 	prepareBiri(siteCfg)
 	jar, err := cookiejar.New(&cookiejar.Options{PublicSuffixList: publicsuffix.List})
 	if err != nil {
 		err = fmt.Errorf("failed to get new cookiejar: %v", err)
-		log.Fatal(err)
+		slog.Error(err.Error())
 		return nil, err
 	}
 
 	biri.ProxyStart()
 
 	proxy := biri.GetClient()
-	log.Println("Got proxy")
+	slog.Debug("Got proxy")
 	proxy.Client.Jar = jar
 
 	resp, err := proxy.Client.PostForm(siteCfg.cardListURL, url.Values{})
@@ -595,11 +594,11 @@ func ExpansionList(cfg Config) (map[int]string, error) {
 		val = strings.TrimSpace(val)
 		if !exists || val == "" {
 			// This is probably the "All" option
-			log.Printf("Option %q had no value", s.Text())
+			slog.Warn(fmt.Sprintf("Option %q had no value", s.Text()))
 			return
 		}
 		if v, err := strconv.Atoi(val); err != nil {
-			log.Printf("Error parsing expansion value: %v\n", err)
+			slog.Error(fmt.Sprintf("Error parsing expansion value: %v", err))
 		} else {
 			eMap[v] = s.Text()
 		}

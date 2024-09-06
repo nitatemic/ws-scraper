@@ -18,7 +18,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"log"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"sort"
@@ -37,7 +37,7 @@ func writeCards(wg *sync.WaitGroup, lang string, cardCh <-chan fetch.Card) {
 	for card := range cardCh {
 		res, errMarshal := json.Marshal(card)
 		if errMarshal != nil {
-			log.Println("error marshal", errMarshal)
+			slog.Error(fmt.Sprintf("error marshalling: %v", errMarshal))
 			continue
 		}
 		var buffer bytes.Buffer
@@ -46,29 +46,29 @@ func writeCards(wg *sync.WaitGroup, lang string, cardCh <-chan fetch.Card) {
 		os.MkdirAll(dirName, 0o744)
 		out, err := os.Create(filepath.Join(dirName, cardName))
 		if err != nil {
-			log.Println("write error", err.Error())
+			slog.Error(fmt.Sprintf("Error writing card: %v", err))
 			continue
 		}
 		json.Indent(&buffer, res, "", "\t")
 		buffer.WriteTo(out)
 		out.Close()
-		log.Println("Finish card- : ", cardName)
+		slog.Info(fmt.Sprintf("Finished card: %v", cardName))
 	}
 	wg.Done()
 }
 
 func writeBoosters(lang string, boosters map[string]fetch.Booster) {
 	for k, v := range boosters {
-		log.Println("Found booster :", k)
+		slog.Info(fmt.Sprintf("Writing booster: %v", k))
 		dirName := filepath.Join(viper.GetString("boosterDir"), lang)
 		os.MkdirAll(dirName, 0o744)
 		filename := filepath.Join(dirName, k+".json")
 		updatedData, err := json.Marshal(v.Cards)
 		if err != nil {
-			log.Println("Error marshal struct: ", k)
+			slog.Error("Error marshalling booster", "release", k, "error", err)
 		}
 		if err := os.WriteFile(filename, updatedData, 0o644); err != nil {
-			log.Println("Error writing :", k)
+			slog.Error(fmt.Sprintf("Error writing booster: %v", k))
 		}
 	}
 }
@@ -94,36 +94,35 @@ Use global switches to specify the set, by default it will fetch all sets.`,
 		case "JP":
 			cfg.Language = fetch.Jp
 		default:
-			log.Fatalf("Unsupported language: %q\n", lang)
+			panic(fmt.Sprintf("Unsupported language: %q", lang))
 		}
 		if serieNumber != "" {
 			if s, err := strconv.Atoi(serieNumber); err == nil {
 				cfg.ExpansionNumber = s
 			} else {
-				log.Fatalf("Invalid expansion number: %v\n", err)
+				panic(fmt.Sprintf("Invalid expansion number: %v", err))
 			}
 		}
 		if titleNumber != "" {
 			if t, err := strconv.Atoi(titleNumber); err == nil {
 				cfg.TitleNumber = t
 			} else {
-				log.Fatalf("Invalid title number: %v\n", err)
+				panic(fmt.Sprintf("Invalid title number: %v", err))
 			}
 		}
 		if neo != "" {
 			cfg.SetCode = strings.Split(neo, "##")
 		}
 
-		fmt.Println("fetch called")
-		fmt.Printf("Settings: %v\n", viper.AllSettings())
+		slog.Debug("fetch called", "settings", viper.AllSettings())
 
 		mode := viper.GetString("export")
-		fmt.Println("Start write in mode: ", mode)
+		slog.Info(fmt.Sprintf("Start write in mode: %v", mode))
 		switch mode {
 		case "booster":
 			bm, err := fetch.Boosters(cfg)
 			if err != nil {
-				log.Printf("Error fetching boosters: %v\n", err)
+				slog.Error(fmt.Sprintf("Error fetching boosters: %v", err))
 			}
 			writeBoosters(lang, bm)
 		case "card":
@@ -135,13 +134,13 @@ Use global switches to specify the set, by default it will fetch all sets.`,
 			}
 			err := fetch.CardsStream(cfg, cardCh)
 			if err != nil {
-				log.Printf("Error fetching cards: %v\n", err)
+				slog.Error(fmt.Sprintf("Error fetching cards: %v", err))
 			}
 			wg.Wait()
 		case "expansionlist":
 			eMap, err := fetch.ExpansionList(cfg)
 			if err != nil {
-				log.Printf("Error fetching expansion list: %v\n", err)
+				slog.Error(fmt.Sprintf("Error fetching expansion list: %v", err))
 			}
 			if len(eMap) > 0 {
 				var expansions []int
@@ -156,7 +155,7 @@ Use global switches to specify the set, by default it will fetch all sets.`,
 				}
 			}
 		default:
-			log.Fatalf("Unsupported export mode: %q\n", mode)
+			panic(fmt.Sprintf("Unsupported export mode: %q", mode))
 		}
 	},
 }
@@ -179,7 +178,7 @@ func init() {
 	fetchCmd.Flags().BoolP("reverse", "r", false, "Reverse order")
 	fetchCmd.Flags().BoolP("allrarity", "a", false, "get all rarity (sp, ssp, sbr, etc...)")
 	fetchCmd.Flags().StringP("export", "e", "card", "export value: card, booster, expansionlist, all")
-	fetchCmd.Flags().StringP("lang", "l", "JP", "Site language to pull from. Options are EN or JP. JP is default")
+	fetchCmd.Flags().String("lang", "JP", "Site language to pull from. Options are EN or JP. JP is default")
 	fetchCmd.Flags().BoolP("recent", "", false, "get all recent products")
 
 	viper.BindPFlag("boosterDir", fetchCmd.Flags().Lookup("boosterDir"))

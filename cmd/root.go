@@ -16,6 +16,7 @@ package cmd
 
 import (
 	"fmt"
+	"log/slog"
 	"os"
 
 	homedir "github.com/mitchellh/go-homedir"
@@ -25,6 +26,7 @@ import (
 
 var (
 	cfgFile     string
+	logLevel    string
 	serieNumber string
 	titleNumber string
 	neo         string
@@ -58,13 +60,31 @@ To use environ variable, use the prefix 'WSOFF'.
 	// has an action associated with it:
 	// Run: func(cmd *cobra.Command, args []string) {
 	// },
+	PersistentPreRun: func(cmd *cobra.Command, args []string) {
+		switch logLevel {
+		case "d", "debug":
+			slog.Info("Setting log level to debug")
+			slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug})))
+		case "e", "error":
+			slog.Info("Setting log level to error")
+			slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError})))
+		default:
+			fallthrough
+		case "i", "info":
+			slog.Info("Setting log level to info")
+			slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelInfo})))
+		case "w", "warn":
+			slog.Info("Setting log level to warn")
+			slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelWarn})))
+		}
+	},
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
 // This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() {
 	if err := rootCmd.Execute(); err != nil {
-		fmt.Println(err)
+		slog.Error(fmt.Sprintf("Command failed: %v", err))
 		os.Exit(1)
 	}
 }
@@ -75,6 +95,7 @@ func init() {
 	// Here you will define your flags and configuration settings.
 	// Cobra supports persistent flags, which, if defined here,
 	// will be global for your application.
+	rootCmd.PersistentFlags().StringVarP(&logLevel, "log", "l", "i", "Minimum log level to allow. One of d|debug|i|info|w|warn|e|error")
 	rootCmd.PersistentFlags().StringVarP(&serieNumber, "expansion", "", "", "expansion number")
 	rootCmd.PersistentFlags().StringVarP(&titleNumber, "title", "t", "", "title number")
 	rootCmd.PersistentFlags().StringVarP(&neo, "neo", "n", "", "Neo standar by set")
@@ -89,7 +110,7 @@ func initConfig() {
 		// Find home directory.
 		home, err := homedir.Dir()
 		if err != nil {
-			fmt.Println(err)
+			slog.Error(fmt.Sprintf("Couldn't find home directory: %v", err))
 			os.Exit(1)
 		}
 
@@ -103,6 +124,6 @@ func initConfig() {
 
 	// If a config file is found, read it in.
 	if err := viper.ReadInConfig(); err == nil {
-		fmt.Println("Using config file:", viper.ConfigFileUsed())
+		slog.Info(fmt.Sprintf("Using config file: %v", viper.ConfigFileUsed()))
 	}
 }

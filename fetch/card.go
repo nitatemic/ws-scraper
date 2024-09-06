@@ -18,7 +18,7 @@ import (
 	"bytes"
 	"fmt"
 	"html"
-	"log"
+	"log/slog"
 	"path"
 	"regexp"
 	"strconv"
@@ -151,7 +151,7 @@ func extractData(config siteConfig, mainHTML *goquery.Selection) Card {
 	case "JP":
 		return extractDataJp(config, mainHTML)
 	default:
-		log.Fatalf("Unsupported site: %q\n", config.languageCode)
+		slog.Error(fmt.Sprintf("Unsupported site: %q", config.languageCode))
 		return Card{}
 	}
 }
@@ -161,12 +161,12 @@ func extractDataEn(config siteConfig, mainHTML *goquery.Selection) Card {
 	cardNumber := txtArea.Find(".number").First().Last().Text()
 	defer func() {
 		if err := recover(); err != nil {
-			log.Printf("Panic for %v. Error=%v", cardNumber, err)
+			slog.With("cardnumber", cardNumber).Error(fmt.Sprintf("Panic during card extraction=%v", err))
 		}
 	}()
 
 	cardNumber = sanitizeCardNumber(cardNumber)
-	log.Println("Start card:", cardNumber)
+	slog.Debug(fmt.Sprintf("Start card: %s", cardNumber))
 
 	setID, release, releasePackID, cardID := parseCardNumber(cardNumber)
 
@@ -193,7 +193,7 @@ func extractDataEn(config siteConfig, mainHTML *goquery.Selection) Card {
 				_, colorName := path.Split(u)
 				info["color"] = strings.ToUpper(strings.Split(colorName, ".")[0])
 			} else {
-				log.Printf("Failed to get color for %q\n", cardNumber)
+				slog.With("cardnumber", cardNumber).Error("Failed to get color")
 			}
 		case "Cost":
 			info["cost"] = ddText
@@ -210,7 +210,7 @@ func extractDataEn(config siteConfig, mainHTML *goquery.Selection) Card {
 				_, side := path.Split(u)
 				info["side"] = strings.ToUpper(strings.Split(side, ".")[0])
 			} else {
-				log.Printf("Failed to get side for %q\n", cardNumber)
+				slog.With("cardnumber", cardNumber).Error("Failed to get side")
 			}
 		case "Soul":
 			info["soul"] = strconv.Itoa(dd.Children().Length())
@@ -227,7 +227,7 @@ func extractDataEn(config siteConfig, mainHTML *goquery.Selection) Card {
 			})
 			info["trigger"] = strings.ToUpper(strings.TrimSpace(res.String()))
 		default:
-			log.Println("Unknown:", dt)
+			slog.With("cardnumber", cardNumber).Error(fmt.Sprintf("Unknown detail: %v", dt))
 		}
 	})
 
@@ -239,7 +239,7 @@ func extractDataEn(config siteConfig, mainHTML *goquery.Selection) Card {
 
 	ability, err := extractAbilities(mainHTML.Find(".p-cards__detail p").Last())
 	if err != nil {
-		log.Printf("Failed to get ability node: %v\n", err)
+		slog.With("cardnumber", cardNumber).Error(fmt.Sprintf("Failed to get ability node: %v", err))
 	}
 
 	card := Card{
@@ -267,7 +267,7 @@ func extractDataEn(config siteConfig, mainHTML *goquery.Selection) Card {
 	if fullURL, err := joinPath(config.baseURL, imageCardURL); err == nil {
 		card.ImageURL = fullURL.String()
 	} else {
-		log.Printf("Couldn't form full image URL: %v\n", err)
+		slog.With("cardnumber", cardNumber).Error(fmt.Sprintf("Couldn't form full image URL: %v", err))
 		card.ImageURL = imageCardURL
 	}
 	if info["specialAttribute"] != "" {
@@ -286,12 +286,12 @@ func extractDataJp(config siteConfig, mainHTML *goquery.Selection) Card {
 	titleSpan := mainHTML.Find("h4 span").Last().Text()
 	defer func() {
 		if err := recover(); err != nil {
-			log.Printf("Panic for %v. Error=%v", titleSpan, err)
+			slog.With("cardnumber", titleSpan).Error(fmt.Sprintf("Panic during card extraction=%v", err))
 		}
 	}()
 
 	cardNumber := sanitizeCardNumber(titleSpan)
-	log.Println("Start card:", titleSpan)
+	slog.Debug(fmt.Sprintf("Start card: %s", titleSpan))
 
 	setID, release, releasePackID, cardID := parseCardNumber(cardNumber)
 
@@ -300,7 +300,7 @@ func extractDataJp(config siteConfig, mainHTML *goquery.Selection) Card {
 
 	ability, err := extractAbilities(mainHTML.Find("span").Last())
 	if err != nil {
-		log.Printf("Failed to get ability node: %v\n", err)
+		slog.With("cardnumber", titleSpan).Error(fmt.Sprintf("Failed to get ability node: %v", err))
 	}
 
 	infos := make(map[string]string)
@@ -373,7 +373,7 @@ func extractDataJp(config siteConfig, mainHTML *goquery.Selection) Card {
 				infos["specialAttribute"] = strings.TrimSpace(res.String())
 			}
 		default:
-			log.Println("Unknown:", txt)
+			slog.With("cardnumber", titleSpan).Error(fmt.Sprintf("Unknown detail: %q", txt))
 		}
 	})
 
@@ -400,7 +400,7 @@ func extractDataJp(config siteConfig, mainHTML *goquery.Selection) Card {
 	if fullURL, err := joinPath(config.baseURL, imageCardURL); err == nil {
 		card.ImageURL = fullURL.String()
 	} else {
-		log.Printf("Couldn't form full image URL: %v\n", err)
+		slog.With("cardnumber", titleSpan).Error(fmt.Sprintf("Couldn't form full image URL: %v", err))
 		card.ImageURL = imageCardURL
 	}
 	if infos["specialAttribute"] != "" {
@@ -484,7 +484,7 @@ func parseCardNumber(cn string) (setID, release, releasePackID, id string) {
 		}
 		return
 	} else {
-		log.Println("Can't get set info from:", cn)
+		slog.With("cardnumber", cn).Error(fmt.Sprintf("Can't get set info from: %s", cn))
 	}
 	return
 }

@@ -16,7 +16,7 @@ package fetch
 
 import (
 	"fmt"
-	"log"
+	"log/slog"
 	"path"
 	"regexp"
 	"strings"
@@ -52,14 +52,14 @@ func getDocument(url string) *goquery.Document {
 		proxy := biri.GetClient()
 		resp, err := proxy.Client.Get(url)
 		if err != nil || resp.StatusCode != 200 {
-			log.Println("Error on fetch page: ", err)
+			slog.Error(fmt.Sprintf("Error fetching page: %v", err))
 			proxy.Ban()
 			continue
 		}
 		defer resp.Body.Close()
 		doc, err = goquery.NewDocumentFromReader(resp.Body)
 		if err != nil {
-			log.Println("Error on parse page: ", err)
+			slog.Error(fmt.Sprintf("Error parsing page: %v", err))
 			proxy.Ban()
 			continue
 		}
@@ -117,10 +117,10 @@ func Products(page string) []ProductInfo {
 				return
 			}
 		}
-		log.Println("Extract :", productDetail)
+		slog.Info(fmt.Sprintf("Extract: %v", productDetail))
 		doc := getDocument(productDetail)
 		if productInfo, err := extractProductInfo(doc); err != nil {
-			log.Println("Error getting product info:", err)
+			slog.Error(fmt.Sprintf("Error getting product info: %v", err))
 		} else {
 			productList = append(productList, productInfo)
 		}

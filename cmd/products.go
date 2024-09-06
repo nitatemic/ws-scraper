@@ -7,7 +7,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"log"
+	"log/slog"
 	"os"
 
 	"github.com/kwadkore/ws-scraper/fetch"
@@ -17,17 +17,17 @@ import (
 func writeProducts(productList []fetch.ProductInfo) {
 	res, errMarshal := json.Marshal(productList)
 	if errMarshal != nil {
-		log.Println("error marshal", errMarshal)
+		slog.Error(fmt.Sprintf("Error marshalling: %v", errMarshal))
 	}
 	var buffer bytes.Buffer
 	out, err := os.Create("product.json")
 	if err != nil {
-		log.Println("write error", err.Error())
+		slog.Error(fmt.Sprintf("Error writing: %v", err))
 	}
 	json.Indent(&buffer, res, "", "\t")
 	buffer.WriteTo(out)
 	out.Close()
-	log.Println("Finished")
+	slog.Debug("Finished writing")
 }
 
 // productsCmd represents the products command
