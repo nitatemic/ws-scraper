@@ -48,6 +48,7 @@ const (
 
 type siteConfig struct {
 	baseURL                    string
+	baseURLValues              func() url.Values
 	cardListURL                string
 	cardSearchURL              string
 	languageCode               string
@@ -60,7 +61,12 @@ type siteConfig struct {
 
 var siteConfigs = map[SiteLanguage]siteConfig{
 	En: {
-		baseURL:       "https://en.ws-tcg.com/",
+		baseURL: "https://en.ws-tcg.com/",
+		baseURLValues: func() url.Values {
+			return url.Values{
+				"view": {"text"},
+			}
+		},
 		cardListURL:   "https://en.ws-tcg.com/cardlist/list/",
 		cardSearchURL: "https://en.ws-tcg.com/cardlist/searchresults/",
 		languageCode:  "EN",
@@ -133,11 +139,8 @@ var siteConfigs = map[SiteLanguage]siteConfig{
 				re := regexp.MustCompile(`expansion=(\d+)`)
 				if m := re.FindStringSubmatch(hrefAttr); m != nil {
 					return &url.Values{
-						"cmd":             {"search"},
-						"show_page_count": {"100"},
-						"show_small":      {"0"},
-						"parallel":        {"0"},
-						"expansion":       {m[1]},
+						"view":      {"text"},
+						"expansion": {m[1]},
 					}
 				}
 			}
@@ -146,7 +149,14 @@ var siteConfigs = map[SiteLanguage]siteConfig{
 		supportTitleNumber: true,
 	},
 	Jp: {
-		baseURL:       "https://ws-tcg.com/",
+		baseURL: "https://ws-tcg.com/",
+		baseURLValues: func() url.Values {
+			return url.Values{
+				"cmd":             {"search"},
+				"show_page_count": {"100"},
+				"show_small":      {"0"},
+			}
+		},
 		cardListURL:   "https://ws-tcg.com/cardlist/",
 		cardSearchURL: "https://ws-tcg.com/cardlist/search",
 		languageCode:  "JP",
@@ -391,11 +401,7 @@ func CardsStream(cfg Config, cardCh chan<- Card) error {
 
 	biri.ProxyStart()
 
-	urlValues := url.Values{
-		"cmd":             {"search"},
-		"show_page_count": {"100"},
-		"show_small":      {"0"},
-	}
+	urlValues := siteCfg.baseURLValues()
 	if cfg.ExpansionNumber != 0 {
 		switch cfg.Language {
 		case En:
