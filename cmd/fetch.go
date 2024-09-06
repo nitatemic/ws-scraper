@@ -21,6 +21,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -137,6 +138,23 @@ Use global switches to specify the set, by default it will fetch all sets.`,
 				log.Printf("Error fetching cards: %v\n", err)
 			}
 			wg.Wait()
+		case "expansionlist":
+			eMap, err := fetch.ExpansionList(cfg)
+			if err != nil {
+				log.Printf("Error fetching expansion list: %v\n", err)
+			}
+			if len(eMap) > 0 {
+				var expansions []int
+				for e := range eMap {
+					expansions = append(expansions, e)
+				}
+				sort.Ints(expansions)
+				fmt.Println("Expansions:")
+				for _, e := range expansions {
+
+					fmt.Printf("\t%d: %s\n", e, eMap[e])
+				}
+			}
 		default:
 			log.Fatalf("Unsupported export mode: %q\n", mode)
 		}
@@ -160,7 +178,7 @@ func init() {
 	fetchCmd.Flags().IntP("pagestart", "p", 0, "Start scanning from page #. Skip everything else before this page")
 	fetchCmd.Flags().BoolP("reverse", "r", false, "Reverse order")
 	fetchCmd.Flags().BoolP("allrarity", "a", false, "get all rarity (sp, ssp, sbr, etc...)")
-	fetchCmd.Flags().StringP("export", "e", "card", "export value: card, booster, all")
+	fetchCmd.Flags().StringP("export", "e", "card", "export value: card, booster, expansionlist, all")
 	fetchCmd.Flags().StringP("lang", "l", "JP", "Site language to pull from. Options are EN or JP. JP is default")
 	fetchCmd.Flags().BoolP("recent", "", false, "get all recent products")
 

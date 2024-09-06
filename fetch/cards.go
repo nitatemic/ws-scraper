@@ -548,3 +548,63 @@ func Boosters(cfg Config) (map[string]Booster, error) {
 
 	return reducer.boosterMap, err
 }
+
+// ExpansionList returns a map of expansion numbers to their titles for the
+// specified language in the Config.
+func ExpansionList(cfg Config) (map[int]string, error) {
+	var siteCfg siteConfig
+	if c, ok := siteConfigs[cfg.Language]; !ok {
+		log.Fatalf("Unsupported language: %q\n", cfg.Language)
+	} else {
+		siteCfg = c
+		log.Printf("Fetching %s expansion list\n", cfg.Language)
+	}
+
+	prepareBiri(siteCfg)
+	jar, err := cookiejar.New(&cookiejar.Options{PublicSuffixList: publicsuffix.List})
+	if err != nil {
+		err = fmt.Errorf("failed to get new cookiejar: %v", err)
+		log.Fatal(err)
+		return nil, err
+	}
+
+	biri.ProxyStart()
+
+	proxy := biri.GetClient()
+	log.Println("Got proxy")
+	proxy.Client.Jar = jar
+
+	resp, err := proxy.Client.PostForm(siteCfg.cardListURL, url.Values{})
+	if err != nil || resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("couldn't read page: %v", err)
+	}
+
+	doc, err := goquery.NewDocumentFromReader(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("goquery error for page %q: %v", resp.Request.URL, err)
+	}
+
+	expansionList := doc.Find("select#expansion option")
+	if expansionList.Length() == 0 && resp.StatusCode == http.StatusOK {
+		return nil, fmt.Errorf("couldn't find expansion list")
+	}
+
+	eMap := make(map[int]string)
+	expansionList.Each(func(i int, s *goquery.Selection) {
+		val, exists := s.Attr("value")
+		val = strings.TrimSpace(val)
+		if !exists || val == "" {
+			// This is probably the "All" option
+			log.Printf("Option %q had no value", s.Text())
+			return
+		}
+		if v, err := strconv.Atoi(val); err != nil {
+			log.Printf("Error parsing expansion value: %v\n", err)
+		} else {
+			eMap[v] = s.Text()
+		}
+
+	})
+
+	return eMap, nil
+}

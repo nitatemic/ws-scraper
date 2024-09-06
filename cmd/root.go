@@ -50,6 +50,7 @@ If you want more than one use '##' as seperator like 'wsoffcli fetch -n BD##IM'
   Japanese:
     Title numbers aren't supported
     Expansion 159 is "Monogatari Series: Second Season"
+See doc/expansion_list.md for a list of expansion numbers.
 
 To use environ variable, use the prefix 'WSOFF'.
 	 `,
