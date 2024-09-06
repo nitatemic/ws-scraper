@@ -67,7 +67,7 @@ var siteConfigs = map[SiteLanguage]siteConfig{
 				"view": {"text"},
 			}
 		},
-		cardListURL:   "https://en.ws-tcg.com/cardlist/list/",
+		cardListURL:   "https://en.ws-tcg.com/cardlist/",
 		cardSearchURL: "https://en.ws-tcg.com/cardlist/searchresults/",
 		languageCode:  "EN",
 		lastPageFunc: func(doc *goquery.Document) int {
