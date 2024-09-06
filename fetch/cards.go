@@ -35,6 +35,7 @@ import (
 // The maximum number of workers at each stage that can do tasks locally
 // (that don't have to interact with the websites).
 const maxLocalWorker int = 10
+
 // The maximum number of workers at each stage that have to interact with the websites.
 const maxScrapeWorker int = 5
 
@@ -204,8 +205,10 @@ var siteConfigs = map[SiteLanguage]siteConfig{
 }
 
 type Booster struct {
-	SetCode string
-	Cards   []Card
+	// ReleaseCode is the first set of characters following the / in the card
+	// number. See Card.Release for more information.
+	ReleaseCode string
+	Cards       []Card
 }
 
 type scrapeTask struct {
@@ -334,6 +337,7 @@ func (br *boosterReducer) reduce(rc reducerConfig) {
 	for c := range rc.cardCh {
 		boosterCode := c.Release
 		boosterObj := br.boosterMap[boosterCode]
+		boosterObj.ReleaseCode = boosterCode
 
 		boosterObj.Cards = append(boosterObj.Cards, c)
 		br.boosterMap[boosterCode] = boosterObj
