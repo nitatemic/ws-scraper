@@ -120,7 +120,7 @@ var siteConfigs = map[SiteLanguage]siteConfig{
 						proxy.Readd()
 						doc, err := goquery.NewDocumentFromReader(detailedPageResp.Body)
 						if err != nil {
-							task.pageURLCh <- detailedPageResp.Request.URL.String()
+							// TODO: add proper retry of failed pages
 							slog.With("url", detailedPageResp.Request.URL).Error(fmt.Sprintf("goquery error: %v", err))
 							return
 						}
