@@ -85,7 +85,7 @@ var siteConfigs = map[SiteLanguage]siteConfig{
 			doc, err := goquery.NewDocumentFromReader(resp.Body)
 			if err != nil {
 				task.pageURLCh <- resp.Request.URL.String()
-				slog.With("url", resp.Request.URL).Error(fmt.Sprintf("goquery error: %v", err))
+				slog.With("url", resp.Request.URL).Error(fmt.Sprintf("Couldn't parse result page: %v", err))
 				return false
 			}
 			resultList := doc.Find(".p_cards__results-box ul li")
@@ -114,16 +114,19 @@ var siteConfigs = map[SiteLanguage]siteConfig{
 						var sc string
 						if detailedPageResp != nil {
 							sc = fmt.Sprintf(" (statusCode=%d)", detailedPageResp.StatusCode)
+							detailedPageResp.Body.Close()
 						}
-						slog.With("url", fullPath).Error(fmt.Sprintf("Failed to get detailed page %s", sc), "error", err)
+						slog.With("url", fullPath).Error(fmt.Sprintf("Failed to get detailed page%s", sc), "error", err)
 					} else {
+						defer detailedPageResp.Body.Close()
 						proxy.Readd()
 						doc, err := goquery.NewDocumentFromReader(detailedPageResp.Body)
 						if err != nil {
 							// TODO: add proper retry of failed pages
-							slog.With("url", detailedPageResp.Request.URL).Error(fmt.Sprintf("goquery error: %v", err))
+							slog.With("url", detailedPageResp.Request.URL).Error(fmt.Sprintf("Couldn't parse detailedPageResp: %v", err))
 							return
 						}
+						slog.With("url", fullPath).Debug("Successfully parsed detailed page")
 						cardDetails := doc.Find(".p-cards__detail-wrapper")
 						wgCardSel.Add(1)
 						cardSelCh <- cardDetails
@@ -174,7 +177,7 @@ var siteConfigs = map[SiteLanguage]siteConfig{
 			doc, err := goquery.NewDocumentFromReader(resp.Body)
 			if err != nil {
 				task.pageURLCh <- resp.Request.URL.String()
-				slog.With("url", resp.Request.URL).Error(fmt.Sprintf("goquery error: %v", err))
+				slog.With("url", resp.Request.URL).Error(fmt.Sprintf("Couldn't parse result page: %v", err))
 				return false
 			}
 			resultTable := doc.Find(".search-result-table tr")
@@ -237,6 +240,7 @@ func (s *scrapeTask) getLastPage() (int, error) {
 	if err != nil {
 		return 0, fmt.Errorf("error getting last page: %v", err)
 	}
+	defer resp.Body.Close()
 
 	doc, err := goquery.NewDocumentFromReader(resp.Body)
 	if err != nil {
@@ -282,14 +286,20 @@ func pageFetchWorker(id int, task *scrapeTask) {
 		proxy.Client.Jar = task.cookieJar
 
 		resp, err := proxy.Client.PostForm(link, task.urlValues)
-		if err != nil || resp.StatusCode != http.StatusOK {
+		if err != nil {
 			slog.With("url", link).Info("Ban proxy", "error", err)
 			proxy.Ban()
 			// Retry again later
 			task.pageURLCh <- link
 		} else {
 			proxy.Readd()
-			task.pageRespCh <- resp
+			if resp.StatusCode != http.StatusOK {
+				slog.With("url", link).Warn("Unexpected status code", "statusCode", resp.StatusCode)
+				// Retry again later
+				task.pageURLCh <- link
+			} else {
+				task.pageRespCh <- resp
+			}
 		}
 	}
 	slog.Info(fmt.Sprintf("Page fetch worker %d done", id))
@@ -306,6 +316,7 @@ func pageScanWorker(
 		if task.siteConfig.pageScanParseFunc(task, wgCardSel, cardSelCh, resp) {
 			task.wgPageScan.Done()
 		}
+		resp.Body.Close()
 		slog.Debug(fmt.Sprintf("Finish scanning page: %v", resp.Request.URL))
 	}
 	slog.Info(fmt.Sprintf("Page scan worker %d done", id))
@@ -442,6 +453,7 @@ func CardsStream(cfg Config, cardCh chan<- Card) error {
 		if err != nil {
 			return fmt.Errorf("error getting recent: %v", err)
 		}
+		defer resp.Body.Close()
 		doc, err := goquery.NewDocumentFromReader(resp.Body)
 		if err != nil {
 			return fmt.Errorf("error parsing recent: %v", err)
@@ -574,9 +586,14 @@ func ExpansionList(cfg Config) (map[int]string, error) {
 	proxy.Client.Jar = jar
 
 	resp, err := proxy.Client.PostForm(siteCfg.cardListURL, url.Values{})
-	if err != nil || resp.StatusCode != http.StatusOK {
+	if err != nil {
 		return nil, fmt.Errorf("couldn't read page: %v", err)
 	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("unexpected status code: %v", resp.StatusCode)
+	}
+	proxy.Readd()
 
 	doc, err := goquery.NewDocumentFromReader(resp.Body)
 	if err != nil {
