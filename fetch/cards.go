@@ -17,6 +17,7 @@ package fetch
 
 import (
 	"fmt"
+	"image"
 	"log/slog"
 	"net/http"
 	"net/http/cookiejar"
@@ -287,7 +288,7 @@ func pageFetchWorker(id int, task *scrapeTask) {
 
 		resp, err := proxy.Client.PostForm(link, task.urlValues)
 		if err != nil {
-			slog.With("url", link).Info("Ban proxy", "error", err)
+			slog.With("url", link).Debug("Ban proxy", "error", err)
 			proxy.Ban()
 			// Retry again later
 			task.pageURLCh <- link
@@ -322,9 +323,35 @@ func pageScanWorker(
 	slog.Info(fmt.Sprintf("Page scan worker %d done", id))
 }
 
-func extractWorker(siteCfg siteConfig, wgCardSel *sync.WaitGroup, cardSelChan <-chan *goquery.Selection, cardCh chan<- Card) {
+func getImage(url string) (image.Image, error) {
+	client := biri.GetClient()
+	resp, err := client.Client.Get(url)
+	if err != nil {
+		return nil, fmt.Errorf("error fetching image: %v", err)
+	}
+	defer resp.Body.Close()
+
+	img, _, err := image.Decode(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("error decoding image: %v", err)
+	}
+
+	client.Readd()
+	return img, nil
+}
+
+func extractWorker(siteCfg siteConfig, getImages bool, wgCardSel *sync.WaitGroup, cardSelChan <-chan *goquery.Selection, cardCh chan<- Card) {
 	for s := range cardSelChan {
 		c := extractData(siteCfg, s)
+
+		if getImages {
+			if img, err := getImage(c.ImageURL); err != nil {
+				slog.Error(fmt.Sprintf("Problem getting image for %s: %v", c.CardNumber, err))
+			} else {
+				c.Image = img
+			}
+		}
+
 		cardCh <- c
 		wgCardSel.Done()
 	}
@@ -379,6 +406,7 @@ type Config struct {
 	//   159 is "Monogatari Series: Second Season"
 	ExpansionNumber int
 	GetAllRarities  bool
+	GetImages       bool
 	GetRecent       bool
 	Language        SiteLanguage
 	PageStart       int
@@ -486,7 +514,7 @@ func CardsStream(cfg Config, cardCh chan<- Card) error {
 	var wgScanner, wgCardSel sync.WaitGroup
 	cardSelCh := make(chan *goquery.Selection, maxLocalWorker)
 	for i := 0; i < maxLocalWorker; i++ {
-		go extractWorker(siteCfg, &wgCardSel, cardSelCh, cardCh)
+		go extractWorker(siteCfg, cfg.GetImages, &wgCardSel, cardSelCh, cardCh)
 	}
 	for _, st := range scrapeTasks {
 		wgScanner.Add(1)

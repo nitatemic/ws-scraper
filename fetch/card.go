@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"fmt"
 	"html"
+	"image"
 	"log/slog"
 	"path"
 	"regexp"
@@ -84,9 +85,10 @@ type Card struct {
 	// Triggers that the card has and are activated during trigger checks.
 	Triggers []string `json:"triggers"`
 
-	FlavorText string `json:"flavorText"`
-	ImageURL   string `json:"imageURL"`
-	Rarity     string `json:"rarity"`
+	FlavorText string      `json:"flavorText"`
+	ImageURL   string      `json:"imageURL"`
+	Image      image.Image `json:"-"`
+	Rarity     string      `json:"rarity"`
 
 	Version string `json:"version"`
 }
