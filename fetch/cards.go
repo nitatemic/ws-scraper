@@ -28,6 +28,7 @@ import (
 	"sync"
 
 	"golang.org/x/net/publicsuffix"
+	"golang.org/x/text/language"
 
 	"github.com/Akenaide/biri"
 	"github.com/PuerkitoBio/goquery"
@@ -40,11 +41,15 @@ const maxLocalWorker int = 10
 // The maximum number of workers at each stage that have to interact with the websites.
 const maxScrapeWorker int = 5
 
-type SiteLanguage string
+type SiteLanguage language.Tag
 
-const (
-	En SiteLanguage = "EN"
-	Jp SiteLanguage = "JP"
+func (s SiteLanguage) String() string {
+	return language.Tag(s).String()
+}
+
+var (
+	English  SiteLanguage = SiteLanguage(language.English)
+	Japanese SiteLanguage = SiteLanguage(language.Japanese)
 )
 
 type siteConfig struct {
@@ -52,7 +57,7 @@ type siteConfig struct {
 	baseURLValues              func() url.Values
 	cardListURL                string
 	cardSearchURL              string
-	languageCode               string
+	languageCode               language.Tag
 	lastPageFunc               func(doc *goquery.Document) int
 	pageScanParseFunc          func(task *scrapeTask, wgCardSel *sync.WaitGroup, cardSelCh chan<- *goquery.Selection, resp *http.Response) (pageDone bool)
 	recentReleaseDistinguisher string
@@ -61,7 +66,7 @@ type siteConfig struct {
 }
 
 var siteConfigs = map[SiteLanguage]siteConfig{
-	En: {
+	English: {
 		baseURL: "https://en.ws-tcg.com/",
 		baseURLValues: func() url.Values {
 			return url.Values{
@@ -70,7 +75,7 @@ var siteConfigs = map[SiteLanguage]siteConfig{
 		},
 		cardListURL:   "https://en.ws-tcg.com/cardlist/",
 		cardSearchURL: "https://en.ws-tcg.com/cardlist/searchresults/",
-		languageCode:  "EN",
+		languageCode:  language.English,
 		lastPageFunc: func(doc *goquery.Document) int {
 			numCardsS := doc.Find(".c-search__results-item span").First().Text()
 			numCards, err := strconv.Atoi(numCardsS)
@@ -152,7 +157,7 @@ var siteConfigs = map[SiteLanguage]siteConfig{
 		},
 		supportTitleNumber: true,
 	},
-	Jp: {
+	Japanese: {
 		baseURL: "https://ws-tcg.com/",
 		baseURLValues: func() url.Values {
 			return url.Values{
@@ -163,7 +168,7 @@ var siteConfigs = map[SiteLanguage]siteConfig{
 		},
 		cardListURL:   "https://ws-tcg.com/cardlist/",
 		cardSearchURL: "https://ws-tcg.com/cardlist/search",
-		languageCode:  "JP",
+		languageCode:  language.Japanese,
 		lastPageFunc: func(doc *goquery.Document) int {
 			all := doc.Find(".pager .next")
 
@@ -422,10 +427,10 @@ type Config struct {
 func CardsStream(cfg Config, cardCh chan<- Card) error {
 	var siteCfg siteConfig
 	if c, ok := siteConfigs[cfg.Language]; !ok {
-		return fmt.Errorf("unsupported language: %q", cfg.Language)
+		return fmt.Errorf("unsupported language: %v", cfg.Language)
 	} else {
 		siteCfg = c
-		slog.Info(fmt.Sprintf("Fetching %s cards", cfg.Language))
+		slog.Info(fmt.Sprintf("Fetching %v cards", cfg.Language))
 	}
 
 	slog.Info("Streaming cards", "config", cfg)
@@ -441,17 +446,17 @@ func CardsStream(cfg Config, cardCh chan<- Card) error {
 	urlValues := siteCfg.baseURLValues()
 	if cfg.ExpansionNumber != 0 {
 		switch cfg.Language {
-		case En:
+		case English:
 			// "expansion" also works, but the website uses "expansion_name", so use "expansion" to
 			// stay in line with the website
 			urlValues.Add("expansion_name", strconv.Itoa(cfg.ExpansionNumber))
-		case Jp:
+		case Japanese:
 			urlValues.Add("expansion", strconv.Itoa(cfg.ExpansionNumber))
 		}
 	}
 	if cfg.TitleNumber != 0 {
 		if !siteCfg.supportTitleNumber {
-			return fmt.Errorf("can't use title number on %s site", cfg.Language)
+			return fmt.Errorf("can't use title number on %v site", cfg.Language)
 		}
 		urlValues.Add("title", strconv.Itoa(cfg.TitleNumber))
 	}
@@ -462,10 +467,10 @@ func CardsStream(cfg Config, cardCh chan<- Card) error {
 	}
 	if len(cfg.SetCode) > 0 {
 		switch cfg.Language {
-		case En:
+		case English:
 			urlValues.Add("keyword_or", strings.Join(cfg.SetCode, " "))
 			urlValues.Add("keyword_type[]", "no")
-		case Jp:
+		case Japanese:
 			urlValues.Add("title_number", fmt.Sprintf("##%s##", strings.Join(cfg.SetCode, "##")))
 		}
 	}
@@ -593,10 +598,10 @@ func Boosters(cfg Config) (map[string]Booster, error) {
 func ExpansionList(cfg Config) (map[int]string, error) {
 	var siteCfg siteConfig
 	if c, ok := siteConfigs[cfg.Language]; !ok {
-		return nil, fmt.Errorf("unsupported language: %q", cfg.Language)
+		return nil, fmt.Errorf("unsupported language: %v", cfg.Language)
 	} else {
 		siteCfg = c
-		slog.Info(fmt.Sprintf("Fetching %s expansion list", cfg.Language))
+		slog.Info(fmt.Sprintf("Fetching %v expansion list", cfg.Language))
 	}
 
 	prepareBiri(siteCfg)

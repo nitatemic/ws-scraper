@@ -29,11 +29,12 @@ import (
 	"github.com/kwadkore/ws-scraper/fetch"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"golang.org/x/text/language"
 )
 
 const maxWorker int = 5
 
-func writeCards(wg *sync.WaitGroup, lang string, cardCh <-chan fetch.Card) {
+func writeCards(wg *sync.WaitGroup, lang language.Tag, cardCh <-chan fetch.Card) {
 	for card := range cardCh {
 		res, errMarshal := json.Marshal(card)
 		if errMarshal != nil {
@@ -42,7 +43,7 @@ func writeCards(wg *sync.WaitGroup, lang string, cardCh <-chan fetch.Card) {
 		}
 		var buffer bytes.Buffer
 		cardName := fmt.Sprintf("%v-%v-%v.json", card.SetID, card.Release, card.ID)
-		dirName := filepath.Join(viper.GetString("cardDir"), lang, card.SetID, card.Release)
+		dirName := filepath.Join(viper.GetString("cardDir"), lang.String(), card.SetID, card.Release)
 		os.MkdirAll(dirName, 0o744)
 		out, err := os.Create(filepath.Join(dirName, cardName))
 		if err != nil {
@@ -57,10 +58,10 @@ func writeCards(wg *sync.WaitGroup, lang string, cardCh <-chan fetch.Card) {
 	wg.Done()
 }
 
-func writeBoosters(lang string, boosters map[string]fetch.Booster) {
+func writeBoosters(lang language.Tag, boosters map[string]fetch.Booster) {
 	for k, v := range boosters {
 		slog.Info(fmt.Sprintf("Writing booster: %v", k))
-		dirName := filepath.Join(viper.GetString("boosterDir"), lang)
+		dirName := filepath.Join(viper.GetString("boosterDir"), lang.String())
 		os.MkdirAll(dirName, 0o744)
 		filename := filepath.Join(dirName, k+".json")
 		updatedData, err := json.Marshal(v.Cards)
@@ -87,14 +88,24 @@ Use global switches to specify the set, by default it will fetch all sets.`,
 			PageStart:      viper.GetInt("pagestart"),
 			Reverse:        viper.GetBool("reverse"),
 		}
-		lang := viper.GetString("lang")
-		switch lang {
-		case "EN":
-			cfg.Language = fetch.En
-		case "JP":
-			cfg.Language = fetch.Jp
+		lang, err := language.Parse(viper.GetString("lang"))
+		if err != nil {
+			panic(fmt.Errorf("invalid language parameter: %v", err))
+		}
+
+		lBase, conf := language.Tag(lang).Base()
+		if conf == language.No {
+			panic(fmt.Errorf("completely unknown language: %v", cfg.Language))
+		} else if conf != language.Exact {
+			slog.Info(fmt.Sprintf("Checking base language %v with confidence %v", lBase, conf))
+		}
+		switch lBase.String() {
+		case language.English.String():
+			cfg.Language = fetch.English
+		case language.Japanese.String():
+			cfg.Language = fetch.Japanese
 		default:
-			panic(fmt.Sprintf("Unsupported language: %q", lang))
+			panic(fmt.Sprintf("Unsupported language: %v", lang))
 		}
 		if serieNumber != "" {
 			if s, err := strconv.Atoi(serieNumber); err == nil {
@@ -178,7 +189,7 @@ func init() {
 	fetchCmd.Flags().BoolP("reverse", "r", false, "Reverse order")
 	fetchCmd.Flags().BoolP("allrarity", "a", false, "get all rarity (sp, ssp, sbr, etc...)")
 	fetchCmd.Flags().StringP("export", "e", "card", "export value: card, booster, expansionlist, all")
-	fetchCmd.Flags().String("lang", "JP", "Site language to pull from. Options are EN or JP. JP is default")
+	fetchCmd.Flags().String("lang", "ja", "Site language to pull from. Options are en or ja.")
 	fetchCmd.Flags().BoolP("recent", "", false, "get all recent products")
 
 	viper.BindPFlag("boosterDir", fetchCmd.Flags().Lookup("boosterDir"))

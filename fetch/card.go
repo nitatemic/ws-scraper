@@ -26,6 +26,7 @@ import (
 	"strings"
 
 	"github.com/PuerkitoBio/goquery"
+	"golang.org/x/text/language"
 )
 
 // Card info to export
@@ -148,9 +149,9 @@ func filterDash(st string) string {
 // extractData extract data to card
 func extractData(config siteConfig, mainHTML *goquery.Selection) Card {
 	switch config.languageCode {
-	case "EN":
+	case language.English:
 		return extractDataEn(config, mainHTML)
-	case "JP":
+	case language.Japanese:
 		return extractDataJp(config, mainHTML)
 	default:
 		slog.Error(fmt.Sprintf("Unsupported site: %q", config.languageCode))
@@ -254,7 +255,7 @@ func extractDataEn(config siteConfig, mainHTML *goquery.Selection) Card {
 		Release:       release,
 		ReleasePackID: releasePackID,
 		ID:            cardID,
-		Language:      "EN",
+		Language:      language.English.String(),
 		Type:          info["type"],
 		Name:          cardName,
 		Level:         filterDash(info["level"]),
@@ -387,7 +388,7 @@ func extractDataJp(config siteConfig, mainHTML *goquery.Selection) Card {
 		Release:       release,
 		ReleasePackID: releasePackID,
 		ID:            cardID,
-		Language:      "JP",
+		Language:      language.Japanese.String(),
 		Type:          infos["type"],
 		Name:          strings.TrimSpace(mainHTML.Find("h4 span").First().Text()),
 		Level:         filterDash(infos["level"]),

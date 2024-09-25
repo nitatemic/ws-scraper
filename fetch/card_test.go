@@ -141,7 +141,7 @@ func TestExtractData_jp(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	card := extractData(siteConfigs[Jp], doc.Clone())
+	card := extractData(siteConfigs[Japanese], doc.Clone())
 	if card.Name != "“私達、参上っ！”上原ひまり" {
 		t.Errorf("got %v: expected “私達、参上っ！”上原ひまり", card.Name)
 	}
@@ -219,7 +219,7 @@ func TestExtractDataEvent_jp(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	card := extractData(siteConfigs[Jp], doc.Clone())
+	card := extractData(siteConfigs[Japanese], doc.Clone())
 	if card.Name != "ミッシェルからの伝言" {
 		t.Errorf("got %v: expected ミッシェルからの伝言", card.Name)
 	}
@@ -275,7 +275,7 @@ func TestExtractDataCX_jp(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	card := extractData(siteConfigs[Jp], doc.Clone())
+	card := extractData(siteConfigs[Japanese], doc.Clone())
 
 	expectedCard := Card{
 		Name:          "キラキラのお日様",
@@ -287,7 +287,7 @@ func TestExtractDataCX_jp(t *testing.T) {
 		ReleasePackID: "63",
 		ID:            "025",
 		Color:         "YELLOW",
-		Language:      "JP",
+		Language:      "ja",
 		Type:          "CX",
 		Soul:          "",
 		Level:         "",
@@ -382,7 +382,7 @@ func TestExtractData_en(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	card := extractData(siteConfigs[En], doc.Clone())
+	card := extractData(siteConfigs[English], doc.Clone())
 	expectedCard := Card{
 		Name:          "EGOISTIC, Sakura",
 		ExpansionName: "PR Card 【Schwarz Side】",
@@ -397,7 +397,7 @@ func TestExtractData_en(t *testing.T) {
 		Power:         "2000",
 		Soul:          "1",
 		Cost:          "0",
-		Language:      "EN",
+		Language:      "en",
 		Type:          "CH",
 		Rarity:        "PR",
 		FlavorText:    "I wish someone like this didn't exist.",
@@ -493,7 +493,7 @@ func TestExtractData_en_multiIconAbility(t *testing.T) {
 		Release:       "WX04",
 		ReleasePackID: "WX",
 		ID:            "007S",
-		Language:      "EN",
+		Language:      "en",
 		Type:          "CH",
 		Name:          "Aang: Learning Avatar State",
 		Color:         "YELLOW",
@@ -513,7 +513,7 @@ func TestExtractData_en_multiIconAbility(t *testing.T) {
 		Version: CardModelVersion,
 	}
 
-	card := extractData(siteConfigs[En], doc.Clone())
+	card := extractData(siteConfigs[English], doc.Clone())
 	assertCardEquals(t, card, expectedCard)
 }
 
@@ -594,7 +594,7 @@ func TestExtractDataEvent_en(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	card := extractData(siteConfigs[En], doc.Clone())
+	card := extractData(siteConfigs[English], doc.Clone())
 
 	if card.Type != "EV" {
 		t.Errorf("got %v: expected EV", card.Type)
@@ -706,7 +706,7 @@ func TestExtractDataCX_en(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	card := extractData(siteConfigs[En], doc.Clone())
+	card := extractData(siteConfigs[English], doc.Clone())
 
 	if card.Type != "CX" {
 		t.Errorf("got %v: expected CX", card.Type)
@@ -822,7 +822,7 @@ func TestExtractData_en_specialCardNumbers(t *testing.T) {
           </div>
         </div>
       </div>`,
-			En,
+			English,
 			Card{
 				CardNumber:    "BD/EN-W03-004",
 				SetID:         "BD",
@@ -831,7 +831,7 @@ func TestExtractData_en_specialCardNumbers(t *testing.T) {
 				Release:       "EN-W03",
 				ReleasePackID: "03",
 				ID:            "004",
-				Language:      "EN",
+				Language:      "en",
 				Type:          "CH",
 				Name:          `"A Nice Change" Kanon Matsubara`,
 				Color:         "YELLOW",
@@ -920,7 +920,7 @@ func TestExtractData_en_specialCardNumbers(t *testing.T) {
           </div>
         </div>
       </div>`,
-			En,
+			English,
 			Card{
 				CardNumber:    "WS/TCPR-P01",
 				SetID:         "WS",
@@ -929,7 +929,7 @@ func TestExtractData_en_specialCardNumbers(t *testing.T) {
 				Release:       "TCPR",
 				ReleasePackID: "",
 				ID:            "P01",
-				Language:      "EN",
+				Language:      "en",
 				Type:          "CX",
 				Name:          "Idol Theme Cup 2024",
 				Color:         "RED",
@@ -1017,7 +1017,7 @@ func TestExtractData_en_specialCardNumbers(t *testing.T) {
           </div>
         </div>
       </div>`,
-			En,
+			English,
 			Card{
 				// The website puts the card number as "RWBY/BRO2021-01+PR",
 				// but it's actually "RWBY/BRO2021-01 PR".
@@ -1028,7 +1028,7 @@ func TestExtractData_en_specialCardNumbers(t *testing.T) {
 				Release:       "BRO2021",
 				ReleasePackID: "2021",
 				ID:            "01 PR",
-				Language:      "EN",
+				Language:      "en",
 				Type:          "CH",
 				Name:          "Lie Ren",
 				Color:         "GREEN",
@@ -1117,7 +1117,7 @@ func TestExtractData_en_specialCardNumbers(t *testing.T) {
           </div>
         </div>
       </div>`,
-			En,
+			English,
 			Card{
 				CardNumber:    "BFR/BSL2021-03S",
 				SetID:         "BFR",
@@ -1126,7 +1126,7 @@ func TestExtractData_en_specialCardNumbers(t *testing.T) {
 				Release:       "BSL2021",
 				ReleasePackID: "2021",
 				ID:            "03S",
-				Language:      "EN",
+				Language:      "en",
 				Type:          "CH",
 				Name:          "Moment Between the Two, Sally",
 				Color:         "BLUE",
@@ -1215,7 +1215,7 @@ func TestExtractData_en_specialCardNumbers(t *testing.T) {
           </div>
         </div>
       </div>`,
-			En,
+			English,
 			Card{
 				CardNumber:    "TSK/S82-E070SSP+",
 				SetID:         "TSK",
@@ -1224,7 +1224,7 @@ func TestExtractData_en_specialCardNumbers(t *testing.T) {
 				Release:       "S82",
 				ReleasePackID: "82",
 				ID:            "E070SSP+",
-				Language:      "EN",
+				Language:      "en",
 				Type:          "CH",
 				Name:          "Triumphant Return, Rimuru",
 				Color:         "BLUE",
