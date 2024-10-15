@@ -26,6 +26,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"golang.org/x/net/publicsuffix"
 	"golang.org/x/text/language"
@@ -34,12 +35,17 @@ import (
 	"github.com/PuerkitoBio/goquery"
 )
 
-// The maximum number of workers at each stage that can do tasks locally
-// (that don't have to interact with the websites).
-const maxLocalWorker int = 10
+const (
+	// The maximum number of workers at each stage that can do tasks locally
+	// (that don't have to interact with the websites).
+	maxLocalWorker int = 10
 
-// The maximum number of workers at each stage that have to interact with the websites.
-const maxScrapeWorker int = 5
+	// The maximum number of workers at each stage that have to interact with the websites.
+	maxScrapeWorker int = 5
+
+	// The minimum amount of time each worker should wait before making a new request to the server. This should help to avoid overwhelming the server.
+	minTimeBetweenRequests = 100 * time.Millisecond
+)
 
 type SiteLanguage language.Tag
 
@@ -115,6 +121,7 @@ var siteConfigs = map[SiteLanguage]siteConfig{
 
 					proxy := biri.GetClient()
 					proxy.Client.Jar = task.cookieJar
+					t := time.After(minTimeBetweenRequests)
 					detailedPageResp, err := proxy.Client.Get(fullPath)
 					if err != nil || detailedPageResp.StatusCode != http.StatusOK {
 						var sc string
@@ -137,6 +144,8 @@ var siteConfigs = map[SiteLanguage]siteConfig{
 						wgCardSel.Add(1)
 						cardSelCh <- cardDetails
 					}
+					// Force the wait between requests
+					<-t
 				})
 			}
 
@@ -291,6 +300,7 @@ func pageFetchWorker(id int, task *scrapeTask) {
 		slog.Debug("Got proxy")
 		proxy.Client.Jar = task.cookieJar
 
+		t := time.After(minTimeBetweenRequests)
 		resp, err := proxy.Client.PostForm(link, task.urlValues)
 		if err != nil {
 			slog.With("url", link).Debug("Ban proxy", "error", err)
@@ -307,6 +317,8 @@ func pageFetchWorker(id int, task *scrapeTask) {
 				task.pageRespCh <- resp
 			}
 		}
+		// Force the wait between requests
+		<-t
 	}
 	slog.Info(fmt.Sprintf("Page fetch worker %d done", id))
 }
@@ -330,7 +342,10 @@ func pageScanWorker(
 
 func getImage(url string) (image.Image, error) {
 	client := biri.GetClient()
+	t := time.After(minTimeBetweenRequests)
 	resp, err := client.Client.Get(url)
+	// Force the wait between requests
+	<-t
 	if err != nil {
 		return nil, fmt.Errorf("error fetching image: %v", err)
 	}
