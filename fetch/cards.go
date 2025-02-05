@@ -16,9 +16,11 @@
 package fetch
 
 import (
+	"context"
 	"fmt"
 	"image"
 	"log/slog"
+	"math/rand"
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
@@ -30,6 +32,8 @@ import (
 
 	"golang.org/x/net/publicsuffix"
 	"golang.org/x/text/language"
+
+	"crypto/tls"
 
 	"github.com/Akenaide/biri"
 	"github.com/PuerkitoBio/goquery"
@@ -44,7 +48,11 @@ const (
 	maxScrapeWorker int = 5
 
 	// The minimum amount of time each worker should wait before making a new request to the server. This should help to avoid overwhelming the server.
-	minTimeBetweenRequests = 100 * time.Millisecond
+	minTimeBetweenRequests = 500 * time.Millisecond
+
+	// Constants for retry logic
+	maxRetries       = 3
+	baseBackoffDelay = 1 * time.Second
 )
 
 type SiteLanguage language.Tag
@@ -121,8 +129,38 @@ var siteConfigs = map[SiteLanguage]siteConfig{
 
 					proxy := biri.GetClient()
 					proxy.Client.Jar = task.cookieJar
+
+					transport, ok := proxy.Client.Transport.(*http.Transport)
+					if !ok {
+						transport = &http.Transport{}
+					}
+					// Skip verification since we're targeting a trusted site
+					transport.TLSClientConfig = &tls.Config{
+						InsecureSkipVerify: true,
+					}
+					transport.DisableKeepAlives = false
+
+					proxy.Client.Transport = transport
+
 					t := time.After(minTimeBetweenRequests)
-					detailedPageResp, err := proxy.Client.Get(fullPath)
+					// Retry logic for EOF errors
+					var detailedPageResp *http.Response
+					for retries := 0; retries < maxRetries; retries++ {
+						if retries > 0 {
+							backoffDelay := time.Duration(retries) * baseBackoffDelay
+							jitter := time.Duration(rand.Int63n(int64(backoffDelay) / 2))
+							time.Sleep(backoffDelay + jitter)
+						}
+
+						detailedPageResp, err = proxy.Client.Get(fullPath)
+						if err == nil && detailedPageResp.StatusCode == http.StatusOK {
+							break
+						}
+						if detailedPageResp != nil {
+							detailedPageResp.Body.Close()
+						}
+					}
+
 					if err != nil || detailedPageResp.StatusCode != http.StatusOK {
 						var sc string
 						if detailedPageResp != nil {
@@ -295,30 +333,62 @@ func joinPath(baseURL, subPath string) (*url.URL, error) {
 
 func pageFetchWorker(id int, task *scrapeTask) {
 	for link := range task.pageURLCh {
-		slog.Debug(fmt.Sprintf("ID %d: fetching page %q with params %v", id, link, task.urlValues))
-		proxy := biri.GetClient()
-		slog.Debug("Got proxy")
-		proxy.Client.Jar = task.cookieJar
+		success := false
+		var errs []string
 
-		t := time.After(minTimeBetweenRequests)
-		resp, err := proxy.Client.PostForm(link, task.urlValues)
-		if err != nil {
-			slog.With("url", link).Debug("Ban proxy", "error", err)
-			proxy.Ban()
-			// Retry again later
-			task.pageURLCh <- link
-		} else {
-			proxy.Readd()
-			if resp.StatusCode != http.StatusOK {
-				slog.With("url", link).Warn("Unexpected status code", "statusCode", resp.StatusCode)
-				// Retry again later
-				task.pageURLCh <- link
-			} else {
-				task.pageRespCh <- resp
+		// Try up to maxRetries times with exponential backoff
+		for attempt := 0; attempt < maxRetries; attempt++ {
+			if attempt > 0 {
+				// Exponential backoff with jitter
+				backoffDelay := time.Duration(attempt) * baseBackoffDelay
+				jitter := time.Duration(rand.Int63n(int64(backoffDelay) / 2))
+				waitTime := backoffDelay + jitter
+				slog.Debug(fmt.Sprintf("Retry attempt %d for %s, waiting %v", attempt, link, waitTime))
+				time.Sleep(waitTime)
 			}
+
+			slog.Debug(fmt.Sprintf("ID %d: fetching page %q with params %v", id, link, task.urlValues))
+			proxy := biri.GetClient()
+			proxy.Client.Jar = task.cookieJar
+
+			t := time.After(minTimeBetweenRequests)
+			resp, err := proxy.Client.PostForm(link, task.urlValues)
+			if err != nil {
+				if strings.Contains(err.Error(), "connection reset by peer") ||
+					strings.Contains(err.Error(), "EOF") ||
+					strings.Contains(err.Error(), "connection refused") {
+					slog.With("url", link).Debug("Temporary connection error", "error", err, "attempt", attempt)
+					proxy.Ban()
+					continue
+				}
+				slog.With("url", link).Debug("Proxy error", "error", err, "attempt", attempt)
+				proxy.Ban()
+				continue // Try next attempt
+			}
+
+			if resp.StatusCode != http.StatusOK {
+				errs = append(errs, fmt.Sprintf("Bad status code=%v, attempt=%d", resp.StatusCode, attempt))
+				resp.Body.Close()
+				proxy.Ban()
+				continue // Try next attempt
+			}
+
+			// Success
+			proxy.Readd()
+			resp.Request = resp.Request.WithContext(context.Background()) // Use a new context without timeout
+			task.pageRespCh <- resp
+			<-t // Force wait between requests
+			success = true
+			break
 		}
-		// Force the wait between requests
-		<-t
+
+		if !success {
+			slog.With("url", link).Error("Failed all retry attempts")
+			for _, err := range errs {
+				slog.With("url", link).Error(err)
+			}
+			task.pageURLCh <- link // Put back in queue for later
+		}
 	}
 	slog.Info(fmt.Sprintf("Page fetch worker %d done", id))
 }
@@ -341,23 +411,39 @@ func pageScanWorker(
 }
 
 func getImage(url string) (image.Image, error) {
-	client := biri.GetClient()
-	t := time.After(minTimeBetweenRequests)
-	resp, err := client.Client.Get(url)
-	// Force the wait between requests
-	<-t
-	if err != nil {
-		return nil, fmt.Errorf("error fetching image: %v", err)
-	}
-	defer resp.Body.Close()
+	var img image.Image
+	var err error
 
-	img, _, err := image.Decode(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("error decoding image: %v", err)
+	for attempt := 0; attempt < maxRetries; attempt++ {
+		if attempt > 0 {
+			backoffDelay := time.Duration(attempt) * baseBackoffDelay
+			time.Sleep(backoffDelay)
+		}
+
+		client := biri.GetClient()
+		t := time.After(minTimeBetweenRequests)
+		var resp *http.Response
+		resp, err = client.Client.Get(url)
+		// Force the wait between requests
+		<-t
+
+		if err != nil {
+			client.Ban()
+			continue
+		}
+
+		img, _, err = image.Decode(resp.Body)
+		resp.Body.Close()
+
+		if err == nil {
+			client.Readd()
+			return img, nil
+		}
+
+		client.Ban()
 	}
 
-	client.Readd()
-	return img, nil
+	return nil, fmt.Errorf("failed to get image after %d attempts: %v", maxRetries, err)
 }
 
 func extractWorker(siteCfg siteConfig, getImages bool, wgCardSel *sync.WaitGroup, cardSelChan <-chan *goquery.Selection, cardCh chan<- Card) {
