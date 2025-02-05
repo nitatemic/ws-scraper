@@ -1244,6 +1244,102 @@ func TestExtractData_en_specialCardNumbers(t *testing.T) {
 				Version: CardModelVersion,
 			},
 		},
+		{
+			"To Stand Side by Side, Sayo Hikawa",
+			`<div class="p-cards__detail-wrapper-inner">
+          <div class="image"><img src="/wp/wp-content/images/cardimages/BDCC/WE42_E096_N.png" alt="To Stand Side by Side, Sayo Hikawa" decoding="async">
+          </div>
+          <div class="p-cards__detail-textarea">
+            <p class="number">BD/WE42_E096_N</p>
+            <p class="ttl u-mt-14 u-mt-16-sp">To Stand Side by Side, Sayo Hikawa</p>
+            <div class="p-cards__detail-type u-mt-22 u-mt-40-sp">
+              <dl>
+                <dt>Expansion</dt>
+                <dd>[EX] Bang Dream! Girls Band Party! Countdown Collection</dd>
+              </dl>
+              <dl>
+                <dt>Traits</dt>
+                <dd>Music・Roselia</dd>
+              </dl>
+              <dl>
+                <dt>Card Type</dt>
+                <dd>Character</dd>
+              </dl>
+              <dl>
+                <dt>Rarity</dt>
+                <dd>N</dd>
+              </dl>
+              <dl>
+                <dt>Side</dt>
+                <dd>
+                                    <img src="/cardlist/partimages/w.gif" alt="" decoding="async">
+                                                    </dd>
+              </dl>
+              <dl>
+                <dt>Color</dt>
+                <dd><img src="/wp/wp-content/images/partimages/blue.gif"></dd>
+              </dl>
+            </div>
+            <div class="p-cards__detail-status u-mt-22 u-mt-40-sp">
+              <dl>
+                <dt>Level</dt>
+                <dd>2</dd>
+              </dl>
+              <dl>
+                <dt>Cost</dt>
+                <dd>1</dd>
+              </dl>
+              <dl>
+                <dt>Power</dt>
+                <dd>2500</dd>
+              </dl>
+              <dl>
+                <dt>Trigger</dt>
+                <dd><img src="/wp/wp-content/images/partimages/soul.gif"></dd>
+              </dl>
+              <dl>
+                <dt>Soul</dt>
+                <dd><img src="/wp/wp-content/images/partimages/soul.gif"></dd>
+              </dl>
+            </div>
+            <div class="p-cards__detail u-mt-22 u-mt-40-sp">
+              <p>【AUTO】 [(2) Put 1 character from your stage into your waiting room] When you use this card's "Backup", you may pay the cost. If you do, choose 1 of your opponent's characters with level higher than your opponent's level, and put it into their waiting room.<br>【ACT】 【COUNTER】 Backup 2500, Level 2 [(1) Put this card from your hand into your waiting room] (Choose 1 of your characters that is being frontal attacked, and that character gets +2500 power until end of turn)</p>
+            </div>
+            <div class="p-cards__detail-serif u-mt-22 u-mt-40-sp">
+              <p>―</p>
+            </div>
+            <p class="p-cards__detail-copyrights u-mt-22 u-mt-40-sp">©BanG Dream! Project ©Craft Egg Inc. ©bushiroad All Rights Reserved. illust.かがちさく</p>
+          </div>
+        </div>`,
+			English,
+			Card{
+				CardNumber:    "BD/WE42-E096 N",
+				SetID:         "BD",
+				ExpansionName: "[EX] Bang Dream! Girls Band Party! Countdown Collection",
+				Side:          "W",
+				Release:       "WE42",
+				ReleasePackID: "42",
+				ID:            "E096 N",
+				Language:      "en",
+				Type:          "CH",
+				Name:          "To Stand Side by Side, Sayo Hikawa",
+				Color:         "BLUE",
+				Soul:          "1",
+				Level:         "2",
+				Cost:          "1",
+				FlavorText:    "",
+				Power:         "2500",
+				Rarity:        "N",
+				ImageURL:      "https://en.ws-tcg.com/wp/wp-content/images/cardimages/BDCC/WE42_E096_N.png",
+				Triggers:      []string{"SOUL"},
+				Traits:        []string{"Music", "Roselia"},
+				Text: []string{
+					"【AUTO】 [(2) Put 1 character from your stage into your waiting room] When you use this card's \"Backup\", you may pay the cost. If you do, choose 1 of your opponent's characters with level higher than your opponent's level, and put it into their waiting room.",
+					"【ACT】 【COUNTER】 Backup 2500, Level 2 [(1) Put this card from your hand into your waiting room] (Choose 1 of your characters that is being frontal attacked, and that character gets +2500 power until end of turn)",
+				},
+				Version: CardModelVersion,
+			},
+		},
 	}
 
 	for _, tc := range testcases {

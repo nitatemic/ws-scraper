@@ -98,7 +98,7 @@ type Card struct {
 const CardModelVersion = "1"
 
 var (
-	standardCardSuffixRE = regexp.MustCompile(`(?P<setID>[a-zA-Z0-9]+)/(?P<release>[a-zA-Z0-9-]+)-(?P<id>[a-zA-Z0-9]+\+?)$`)
+	standardCardSuffixRE = regexp.MustCompile(`(?P<setID>[a-zA-Z0-9]+)/(?P<release>[a-zA-Z0-9-]+)[-_](?P<id>[a-zA-Z0-9_]+\+?)$`)
 
 	standardReleaseRE = regexp.MustCompile(`(?P<code>[a-zA-Z-]+)(?P<packID>[0-9]+)`)
 )
@@ -240,7 +240,7 @@ func extractDataEn(config siteConfig, mainHTML *goquery.Selection) Card {
 
 	// Flavor text
 	flvr := strings.TrimSpace(txtArea.Find(".p-cards__detail-serif").Text())
-	if flvr != "" && flvr != "-" {
+	if flvr != "" && flvr != "-" && flvr != "―" {
 		info["flavourText"] = flvr
 	}
 
@@ -290,15 +290,15 @@ func extractDataEn(config siteConfig, mainHTML *goquery.Selection) Card {
 }
 
 func extractDataJp(config siteConfig, mainHTML *goquery.Selection) Card {
-	titleSpan := mainHTML.Find("h4 span").Last().Text()
+	rawCardNumber := mainHTML.Find("h4 span").Last().Text()
 	defer func() {
 		if err := recover(); err != nil {
-			slog.With("cardnumber", titleSpan).Error(fmt.Sprintf("Panic during card extraction=%v", err))
+			slog.With("cardnumber", rawCardNumber).Error(fmt.Sprintf("Panic during card extraction=%v", err))
 		}
 	}()
 
-	cardNumber := sanitizeCardNumber(titleSpan)
-	slog.Debug(fmt.Sprintf("Start card: %s", titleSpan))
+	cardNumber := sanitizeCardNumber(rawCardNumber)
+	slog.Debug(fmt.Sprintf("Start card: %s", rawCardNumber))
 
 	setID, release, releasePackID, cardID := parseCardNumber(cardNumber)
 
@@ -307,7 +307,7 @@ func extractDataJp(config siteConfig, mainHTML *goquery.Selection) Card {
 
 	ability, err := extractAbilities(mainHTML.Find("span").Last())
 	if err != nil {
-		slog.With("cardnumber", titleSpan).Error(fmt.Sprintf("Failed to get ability node: %v", err))
+		slog.With("cardnumber", rawCardNumber).Error(fmt.Sprintf("Failed to get ability node: %v", err))
 	}
 
 	infos := make(map[string]string)
@@ -380,12 +380,12 @@ func extractDataJp(config siteConfig, mainHTML *goquery.Selection) Card {
 				infos["specialAttribute"] = strings.TrimSpace(res.String())
 			}
 		default:
-			slog.With("cardnumber", titleSpan).Error(fmt.Sprintf("Unknown detail: %q", txt))
+			slog.With("cardnumber", rawCardNumber).Error(fmt.Sprintf("Unknown detail: %q", txt))
 		}
 	})
 
 	card := Card{
-		CardNumber:    titleSpan,
+		CardNumber:    cardNumber,
 		SetID:         setID,
 		SetName:       setName,
 		Side:          infos["side"],
@@ -407,7 +407,7 @@ func extractDataJp(config siteConfig, mainHTML *goquery.Selection) Card {
 	if fullURL, err := joinPath(config.baseURL, imageCardURL); err == nil {
 		card.ImageURL = fullURL.String()
 	} else {
-		slog.With("cardnumber", titleSpan).Error(fmt.Sprintf("Couldn't form full image URL: %v", err))
+		slog.With("cardnumber", rawCardNumber).Error(fmt.Sprintf("Couldn't form full image URL: %v", err))
 		card.ImageURL = imageCardURL
 	}
 	if infos["specialAttribute"] != "" {
@@ -450,6 +450,27 @@ func extractAbilities(abilityNode *goquery.Selection) ([]string, error) {
 func sanitizeCardNumber(cn string) string {
 	// The website sometimes shows "%2B" instead of + for some cards (eg. SSP+ rarity).
 	cn = strings.ReplaceAll(cn, "%2B", "+")
+
+	// Replace underscores with appropriate characters before parsing
+	// First underscore after release code becomes hyphen, rest become spaces
+	parts := strings.Split(cn, "/")
+	if len(parts) > 1 {
+		beforeSlash := parts[0]
+		afterSlash := parts[1]
+
+		// Find the first underscore after the release code
+		releaseEnd := strings.IndexAny(afterSlash, "-_")
+		if releaseEnd != -1 && strings.Contains(afterSlash, "_") {
+			release := afterSlash[:releaseEnd]
+			rest := afterSlash[releaseEnd:]
+			// Replace first underscore with hyphen, rest with spaces
+			rest = strings.Replace(rest, "_", "-", 1)
+			rest = strings.ReplaceAll(rest, "_", " ")
+			afterSlash = release + rest
+		}
+
+		cn = beforeSlash + "/" + afterSlash
+	}
 
 	// The website sometimes puts a + in the displayed card number (eg. RWBY/BRO2021-01+PR) even though it shouldn't be there.
 	plusCnt := strings.Count(cn, "+")
