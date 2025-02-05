@@ -195,8 +195,12 @@ func extractDataEn(config siteConfig, mainHTML *goquery.Selection) Card {
 			if u, ok := dd.Find("img").First().Attr("src"); ok {
 				_, colorName := path.Split(u)
 				info["color"] = strings.ToUpper(strings.Split(colorName, ".")[0])
+			} else if strings.HasPrefix(ddText, "[[") && strings.HasSuffix(ddText, "]]") {
+				// Handle case where color is in text format like [[yellow.gif]]
+				colorName := strings.TrimSuffix(strings.TrimPrefix(ddText, "[["), "]]")
+				info["color"] = strings.ToUpper(strings.Split(colorName, ".")[0])
 			} else {
-				slog.With("cardnumber", cardNumber).Error("Failed to get color")
+				slog.With("cardnumber", cardNumber).Error("Failed to get color", "ddText", ddText)
 			}
 		case "Cost":
 			info["cost"] = ddText

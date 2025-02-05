@@ -1257,3 +1257,120 @@ func TestExtractData_en_specialCardNumbers(t *testing.T) {
 		assertCardEqualsWithTitle(t, tc.name, card, tc.expectedCard)
 	}
 }
+
+func TestExtractData_en_improperColor(t *testing.T) {
+	testcases := []struct {
+		name         string
+		html         string
+		lang         SiteLanguage
+		expectedCard Card
+	}{
+		{
+			`"Fake Priest?" Heiter`,
+			`<div class="p-cards__detail-wrapper-inner">
+          <div class="image"><img src="/wp/wp-content/images/cardimages/SFN/S108_E020.png" alt="&quot;Fake Priest?&quot; Heiter" decoding="async">
+          </div>
+          <div class="p-cards__detail-textarea">
+            <p class="number">SFN/S108-E020</p>
+            <p class="ttl u-mt-14 u-mt-16-sp">"Fake Priest?" Heiter</p>
+            <div class="p-cards__detail-type u-mt-22 u-mt-40-sp">
+              <dl>
+                <dt>Expansion</dt>
+                <dd>Frieren: Beyond Journey’s End</dd>
+              </dl>
+              <dl>
+                <dt>Traits</dt>
+                <dd>Adventurer・Magic</dd>
+              </dl>
+              <dl>
+                <dt>Card Type</dt>
+                <dd>Character</dd>
+              </dl>
+              <dl>
+                <dt>Rarity</dt>
+                <dd>C</dd>
+              </dl>
+              <dl>
+                <dt>Side</dt>
+                <dd>
+                                    <img src="/cardlist/partimages/s.gif" alt="" decoding="async">
+                                                    </dd>
+              </dl>
+              <dl>
+                <dt>Color</dt>
+                <dd>[[yellow.gif]]</dd>
+              </dl>
+            </div>
+            <div class="p-cards__detail-status u-mt-22 u-mt-40-sp">
+              <dl>
+                <dt>Level</dt>
+                <dd>2</dd>
+              </dl>
+              <dl>
+                <dt>Cost</dt>
+                <dd>1</dd>
+              </dl>
+              <dl>
+                <dt>Power</dt>
+                <dd>4500</dd>
+              </dl>
+              <dl>
+                <dt>Trigger</dt>
+                <dd><img src="/wp/wp-content/images/partimages/soul.gif"></dd>
+              </dl>
+              <dl>
+                <dt>Soul</dt>
+                <dd><img src="/wp/wp-content/images/partimages/soul.gif"></dd>
+              </dl>
+            </div>
+            <div class="p-cards__detail u-mt-22 u-mt-40-sp">
+              <p>【CONT】 Assist All of your characters in front of this card get +X power. X is equal to that character's level ×500.<br>【ACT】 [(2) 【REST】 this card] Put the top card of your clock into your waiting room.<br></p>
+            </div>
+            <div class="p-cards__detail-serif u-mt-22 u-mt-40-sp">
+              <p>Himmel: "That brat who said that to me is now a fake priest who just drinks all the time."</p>
+            </div>
+            <p class="p-cards__detail-copyrights u-mt-22 u-mt-40-sp">©Kanehito Yamada, Tsukasa Abe/Shogakukan/ “Frieren”Project</p>
+          </div>
+        </div>`,
+			English,
+			Card{
+				CardNumber:    "SFN/S108-E020",
+				SetID:         "SFN",
+				ExpansionName: "Frieren: Beyond Journey’s End",
+				Side:          "S",
+				Release:       "S108",
+				ReleasePackID: "108",
+				ID:            "E020",
+				Language:      "en",
+				Type:          "CH",
+				Name:          `"Fake Priest?" Heiter`,
+				Color:         "YELLOW",
+				Soul:          "1",
+				Level:         "2",
+				Cost:          "1",
+				FlavorText:    `Himmel: "That brat who said that to me is now a fake priest who just drinks all the time."`,
+				Power:         "4500",
+				Rarity:        "C",
+				ImageURL:      "https://en.ws-tcg.com/wp/wp-content/images/cardimages/SFN/S108_E020.png",
+				Triggers:      []string{"SOUL"},
+				Traits:        []string{"Adventurer", "Magic"},
+				Text: []string{
+					"【CONT】 Assist All of your characters in front of this card get +X power. X is equal to that character's level ×500.",
+					"【ACT】 [(2) 【REST】 this card] Put the top card of your clock into your waiting room.",
+				},
+				Version: CardModelVersion,
+			},
+		},
+	}
+
+	for _, tc := range testcases {
+		doc, err := goquery.NewDocumentFromReader(strings.NewReader(tc.html))
+		if err != nil {
+			t.Error(err)
+			continue
+		}
+
+		card := extractData(siteConfigs[tc.lang], doc.Clone())
+		assertCardEqualsWithTitle(t, tc.name, card, tc.expectedCard)
+	}
+}
