@@ -18,7 +18,9 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log/slog"
+	"net/http"
 	"os"
 	"path/filepath"
 	"sort"
@@ -62,6 +64,39 @@ func writeCards(wg *sync.WaitGroup, lang language.Tag, cardCh <-chan fetch.Card)
 		buffer.WriteTo(out)
 		out.Close()
 		slog.Info(fmt.Sprintf("Finished card: %v", cardName))
+
+		// Téléchargement de l'image si l'option est activée
+		if viper.GetBool("images") && card.ImageURL != "" {
+			assetDir := filepath.Join(dirName, "assets")
+			os.MkdirAll(assetDir, 0o744)
+			imageName := filepath.Base(card.ImageURL)
+			imageFile := filepath.Join(assetDir, imageName)
+			if !viper.GetBool("force") {
+				if _, err := os.Stat(imageFile); err == nil {
+					slog.Info(fmt.Sprintf("Skipping image (file exists): %v", imageName))
+					continue
+				}
+			}
+			resp, err := http.Get(card.ImageURL)
+			if err != nil {
+				slog.Error(fmt.Sprintf("Error downloading image %v: %v", card.ImageURL, err))
+				continue
+			}
+			defer resp.Body.Close()
+
+			outImg, err := os.Create(imageFile)
+			if err != nil {
+				slog.Error(fmt.Sprintf("Error creating image file %v: %v", imageName, err))
+				continue
+			}
+			_, err = io.Copy(outImg, resp.Body)
+			outImg.Close()
+			if err != nil {
+				slog.Error(fmt.Sprintf("Error saving image %v: %v", imageName, err))
+			} else {
+				slog.Info(fmt.Sprintf("Downloaded image: %v", imageName))
+			}
+		}
 	}
 	wg.Done()
 }
@@ -195,11 +230,12 @@ func init() {
 	fetchCmd.Flags().StringP("cardDir", "d", "cards", "Directory to put fetched card information into")
 	fetchCmd.Flags().IntP("pagestart", "p", 0, "Start scanning from page #. Skip everything else before this page")
 	fetchCmd.Flags().BoolP("reverse", "r", false, "Reverse order")
-	fetchCmd.Flags().BoolP("allrarity", "a", false, "get all rarity (sp, ssp, sbr, etc...)")
+	fetchCmd.Flags().BoolP("allrarity", "a", true, "get all rarity (sp, ssp, sbr, etc...)")
 	fetchCmd.Flags().StringP("export", "e", "card", "export value: card, booster, expansionlist, all")
 	fetchCmd.Flags().String("lang", "ja", "Site language to pull from. Options are en or ja.")
 	fetchCmd.Flags().BoolP("recent", "", false, "get all recent products")
 	fetchCmd.Flags().BoolP("force", "f", false, "Force rewriting of files even if they already exist")
+	fetchCmd.Flags().Bool("images", false, "Télécharge les images et les place dans un dossier assets à coté des json")
 
 	viper.BindPFlag("boosterDir", fetchCmd.Flags().Lookup("boosterDir"))
 	viper.BindPFlag("cardDir", fetchCmd.Flags().Lookup("cardDir"))
@@ -210,4 +246,5 @@ func init() {
 	viper.BindPFlag("lang", fetchCmd.Flags().Lookup("lang"))
 	viper.BindPFlag("recent", fetchCmd.Flags().Lookup("recent"))
 	viper.BindPFlag("force", fetchCmd.Flags().Lookup("force"))
+	viper.BindPFlag("images", fetchCmd.Flags().Lookup("images"))
 }
