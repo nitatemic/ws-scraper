@@ -45,7 +45,15 @@ func writeCards(wg *sync.WaitGroup, lang language.Tag, cardCh <-chan fetch.Card)
 		cardName := fmt.Sprintf("%v-%v-%v.json", card.SetID, card.Release, card.ID)
 		dirName := filepath.Join(viper.GetString("cardDir"), lang.String(), card.SetID, card.Release)
 		os.MkdirAll(dirName, 0o744)
-		out, err := os.Create(filepath.Join(dirName, cardName))
+		filePath := filepath.Join(dirName, cardName)
+		// Si le fichier existe et le flag force n'est pas activé, on skip la carte
+		if !viper.GetBool("force") {
+			if _, err := os.Stat(filePath); err == nil {
+				slog.Info(fmt.Sprintf("Skipping card (file exists): %v", cardName))
+				continue
+			}
+		}
+		out, err := os.Create(filePath)
 		if err != nil {
 			slog.Error(fmt.Sprintf("Error writing card: %v", err))
 			continue
@@ -184,13 +192,14 @@ func init() {
 	// is called directly, e.g.:
 	// fetchCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 	fetchCmd.Flags().StringP("boosterDir", "", "boosters", "Directory to put fetched booster information into")
-	fetchCmd.Flags().StringP("cardDir", "", "cards", "Directory to put fetched card information into")
+	fetchCmd.Flags().StringP("cardDir", "d", "cards", "Directory to put fetched card information into")
 	fetchCmd.Flags().IntP("pagestart", "p", 0, "Start scanning from page #. Skip everything else before this page")
 	fetchCmd.Flags().BoolP("reverse", "r", false, "Reverse order")
 	fetchCmd.Flags().BoolP("allrarity", "a", false, "get all rarity (sp, ssp, sbr, etc...)")
 	fetchCmd.Flags().StringP("export", "e", "card", "export value: card, booster, expansionlist, all")
 	fetchCmd.Flags().String("lang", "ja", "Site language to pull from. Options are en or ja.")
 	fetchCmd.Flags().BoolP("recent", "", false, "get all recent products")
+	fetchCmd.Flags().BoolP("force", "f", false, "Force rewriting of files even if they already exist")
 
 	viper.BindPFlag("boosterDir", fetchCmd.Flags().Lookup("boosterDir"))
 	viper.BindPFlag("cardDir", fetchCmd.Flags().Lookup("cardDir"))
@@ -200,4 +209,5 @@ func init() {
 	viper.BindPFlag("export", fetchCmd.Flags().Lookup("export"))
 	viper.BindPFlag("lang", fetchCmd.Flags().Lookup("lang"))
 	viper.BindPFlag("recent", fetchCmd.Flags().Lookup("recent"))
+	viper.BindPFlag("force", fetchCmd.Flags().Lookup("force"))
 }
