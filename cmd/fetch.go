@@ -21,6 +21,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"sort"
@@ -69,7 +70,15 @@ func writeCards(wg *sync.WaitGroup, lang language.Tag, cardCh <-chan fetch.Card)
 		if viper.GetBool("images") && card.ImageURL != "" {
 			assetDir := filepath.Join(dirName, "assets")
 			os.MkdirAll(assetDir, 0o744)
-			imageName := filepath.Base(card.ImageURL)
+
+			// Supprimer les paramètres en analysant l'URL et en récupérant le chemin
+			parsedURL, err := url.Parse(card.ImageURL)
+			if err != nil {
+				slog.Error(fmt.Sprintf("Error parsing image URL %v: %v", card.ImageURL, err))
+				continue
+			}
+			imageName := filepath.Base(parsedURL.Path)
+
 			imageFile := filepath.Join(assetDir, imageName)
 			if !viper.GetBool("force") {
 				if _, err := os.Stat(imageFile); err == nil {
